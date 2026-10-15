@@ -61,10 +61,13 @@
 </template>
 
 <script setup>
+// Data, permission, and document-export dependencies.
 import { ref, computed } from 'vue'
 import { supabase } from 'boot/supabase'
+import { logActivity, ACTIVITY_TYPES } from 'src/utils/activityLog'
 import { Dialog, Notify } from 'quasar'
 import { useAuth } from 'stores/auth'
+// Date filters, role access, and fetched expiry records.
 const auth = useAuth()
 const startDate = ref('')
 const endDate = ref('')
@@ -234,6 +237,11 @@ const returnItem = async (row) => {
     })
 
     if (error) throw error
+
+    logActivity(ACTIVITY_TYPES.EXPIRY_RETURN, {
+      reference: String(row.id),
+      description: `Expiry item returned: ${row.quantity ?? ''} × ${row.productcode ?? row.productname ?? ''}`,
+    })
 
     // ✅ REMOVE loading notification
     dismiss()

@@ -1,229 +1,154 @@
 <template>
-  <q-layout view="hHh lpR fFf" class="q-safe-area">
-    <!-- Minimal Transparent Header -->
-    <q-header class="bg-blue-grey-10 text-white q-safe-area-top" elevated height-hint="95">
-      <div class="row items-center justify-between q-pa-sm" style="height: 80px; padding-top: 35px">
-        <!-- Left: Logo / Title -->
-        <div class="row items-center no-wrap q-gutter-sm">
-          <q-avatar size="36px" class="bg-green-14">
-            <q-icon name="shopping_cart" class="text-white" size="20px" />
-          </q-avatar>
-          <div
-            class="text-subtitle2 text-weight-bold q-ml-xs"
-            style="font-size: clamp(14px, 4vw, 16px); white-space: nowrap"
-          >
-            <span class="text-light-green-14">Dyna</span>
-            <span class="text-white">Shop</span>
-            <div class="text-caption text-grey-1">{{ $t('slogan') }}</div>
-          </div>
-        </div>
-
-        <!-- Right: User Avatar + Name + Status -->
-        <div class="row items-center no-wrap q-gutter-sm">
-          <!-- Name & Status (Left of Avatar) -->
-          <div
-            class="column justify-center text-right"
-            style="max-width: 120px; white-space: nowrap"
-          >
-            <span
-              v-if="auth.userDetails"
-              class="text-subtitle2 text-light-green-14 text-weight-medium"
-              style="font-size: clamp(13px, 3vw, 16px); text-overflow: ellipsis; overflow: hidden"
+  <q-layout view="hHh lpR fFf" class="q-safe-area bg-gray-100">
+    <!-- Shared language and route navigation. -->
+    <HeaderComponent
+      brand-title="DynaShop"
+      :first-name="auth.userDetails?.firstname"
+      :last-name="auth.userDetails?.lastname"
+      @profile="goToProfile"
+      @logout="logout"
+    >
+      <template #toolbar>
+        <div class="quick-actions-bar bg-blue-grey-9 px-3 py-2">
+          <div class="quick-actions flex items-center justify-center gap-2">
+            <q-btn-dropdown
+              no-caps
+              unelevated
+              dropdown-icon="expand_more"
+              aria-label="Select language"
+              class="quick-action-button rounded-xl border border-blue-grey-7 bg-blue-grey-8 text-white transition hover:bg-blue-grey-7"
+              content-class="quick-action-menu rounded-xl border border-blue-grey-7 bg-blue-grey-9 text-white shadow-xl"
+              menu-anchor="bottom middle"
+              menu-self="top middle"
             >
-              {{ auth.userDetails.firstname }}
-              <span class="text-grey-1 text-weight-bold">
-                {{ auth.userDetails.lastname }}
-              </span>
-            </span>
-            <span class="text-caption text-grey-1" style="font-size: clamp(8px, 1.5vw, 12px)">
-              {{ $t('online') }}
-            </span>
+              <template #label>
+                <span class="flex items-center gap-1.5 px-1 text-xs font-bold tracking-wide">
+                  <q-icon name="language" size="18px" class="text-light-green-14" />
+                  {{ currentLanguage }}
+                </span>
+              </template>
+              <q-list class="min-w-36 bg-blue-grey-9 p-1 text-white">
+                <q-item
+                  v-for="language in languages"
+                  :key="language.code"
+                  clickable
+                  v-close-popup
+                  class="min-h-11 rounded-lg text-white hover:bg-blue-grey-8"
+                  :active="locale === language.code"
+                  active-class="bg-blue-grey-7 text-white"
+                  @click="setLanguage(language.code)"
+                >
+                  <q-item-section>{{ language.label }}</q-item-section>
+                  <q-item-section v-if="locale === language.code" side>
+                    <q-icon name="check" color="light-green-14" />
+                  </q-item-section>
+                </q-item>
+              </q-list>
+            </q-btn-dropdown>
+
+            <q-btn-dropdown
+              no-caps
+              unelevated
+              dropdown-icon="expand_more"
+              aria-label="Open navigation menu"
+              class="quick-action-button rounded-xl border border-blue-grey-7 bg-blue-grey-8 text-white transition hover:bg-blue-grey-7"
+              content-class="quick-action-menu rounded-xl border border-blue-grey-7 bg-blue-grey-9 text-white shadow-xl"
+              menu-anchor="bottom middle"
+              menu-self="top middle"
+            >
+              <template #label>
+                <span class="flex items-center gap-1.5 px-1 text-xs font-semibold">
+                  <q-icon name="apps" size="18px" class="text-light-green-14" />
+                  <span class="hidden sm:inline">Menu</span>
+                </span>
+              </template>
+              <q-list class="min-w-48 bg-blue-grey-9 p-1 text-white">
+                <q-item class="min-h-10 rounded-lg border-b border-blue-grey-7">
+                  <q-item-section class="text-sm font-semibold tracking-wide text-light-green-14">
+                    Menu
+                  </q-item-section>
+                </q-item>
+                <q-item
+                  clickable
+                  v-close-popup
+                  class="min-h-11 rounded-lg text-white hover:bg-blue-grey-8"
+                  :active="activeTab === 'sales'"
+                  active-class="bg-blue-grey-7 text-white"
+                  @click="goToSales"
+                >
+                  <q-item-section avatar><q-icon name="storefront" /></q-item-section>
+                  <q-item-section>{{ $t('fabSales') }}</q-item-section>
+                  <q-item-section v-if="activeTab === 'sales'" side>
+                    <q-icon name="check" color="light-green-14" />
+                  </q-item-section>
+                </q-item>
+                <q-item
+                  clickable
+                  v-close-popup
+                  class="min-h-11 rounded-lg text-white hover:bg-blue-grey-8"
+                  :active="activeTab === 'reports'"
+                  active-class="bg-blue-grey-7 text-white"
+                  @click="goToReports"
+                >
+                  <q-item-section avatar><q-icon name="fact_check" /></q-item-section>
+                  <q-item-section>{{ $t('fabReports') }}</q-item-section>
+                  <q-item-section v-if="activeTab === 'reports'" side>
+                    <q-icon name="check" color="light-green-14" />
+                  </q-item-section>
+                </q-item>
+                <q-item
+                  clickable
+                  v-close-popup
+                  class="min-h-11 rounded-lg text-white hover:bg-blue-grey-8"
+                  :active="activeTab === 'admin'"
+                  active-class="bg-blue-grey-7 text-white"
+                  @click="goToAdmin"
+                >
+                  <q-item-section avatar><q-icon name="outbound" /></q-item-section>
+                  <q-item-section>Admin</q-item-section>
+                  <q-item-section v-if="activeTab === 'admin'" side>
+                    <q-icon name="check" color="light-green-14" />
+                  </q-item-section>
+                </q-item>
+              </q-list>
+            </q-btn-dropdown>
           </div>
-
-          <!-- Avatar -->
-          <q-avatar size="36px" class="cursor-pointer">
-            <img
-              src="https://img.freepik.com/premium-vector/person-with-blue-shirt-that-says-name-person_1029948-7040.jpg"
-              alt="User Avatar"
-            />
-          </q-avatar>
-
-          <!-- Menu -->
-          <q-menu anchor="bottom right" self="top right">
-            <template v-slot:activator="props">
-              <q-btn round dense flat icon="more_vert" color="white" v-bind="props" />
-            </template>
-            <q-list style="min-width: 150px" class="bg-grey-1 text-dark">
-              <q-item clickable v-close-popup @click="goToProfile">
-                <q-item-section avatar><q-icon name="person" /></q-item-section>
-                <q-item-section>{{ $t('manageProfile') }}</q-item-section>
-              </q-item>
-              <q-item clickable v-close-popup @click="logout">
-                <q-item-section avatar><q-icon name="logout" color="red" /></q-item-section>
-                <q-item-section class="text-red">{{ $t('logout') }}</q-item-section>
-              </q-item>
-            </q-list>
-          </q-menu>
         </div>
-      </div>
-    </q-header>
+      </template>
+    </HeaderComponent>
 
     <!-- Page Content -->
-    <q-page-container :style="wallpaperStyle">
+    <q-page-container class="app-page-container bg-gray-100">
       <transition name="fade" mode="out-in">
         <router-view />
       </transition>
-
-      <!-- Floating Buttons (INSIDE page, just below header, left corner) -->
-      <!-- Floating Buttons (INSIDE page, just below header, right corner) -->
-      <!-- Floating Buttons (INSIDE page, just below header, right corner) -->
-      <div
-        class="row items-center no-wrap"
-        style="position: fixed; top: 105px; right: 40px; z-index: 1000; gap: 8px"
-      >
-        <!-- Language Toggle with Label -->
-        <div class="relative-position">
-          <q-btn
-            dense
-            round
-            flat
-            color="light-green-14"
-            size="lg"
-            icon="language"
-            @click="toggleLanguage"
-          />
-
-          <!-- Small label positioned above button -->
-          <div
-            class="absolute text-caption text-white bg-red-6 flex flex-center"
-            style="
-              top: -4px;
-              right: -4px;
-              font-size: 10px;
-              min-width: 18px;
-              height: 18px;
-              border-radius: 50%;
-            "
-          >
-            {{ currentLanguage }}
-          </div>
-        </div>
-
-        <!-- Speed Dial for Tabs -->
-        <q-fab
-          v-model="fabOpen"
-          icon="menu"
-          active-icon="close"
-          color="light-green-14"
-          text-color="white"
-          direction="down"
-          size="30px"
-        >
-          <q-fab-action
-            label-position="right"
-            icon="storefront"
-            @click="goToSales"
-            color="blue-grey-10"
-            :text-color="activeTab === 'sales' ? 'light-green-14' : 'white'"
-            :label="$t('fabSales')"
-            class="fab-action-uniform"
-          />
-
-          <q-fab-action
-            label-position="right"
-            icon="fact_check"
-            @click="goToReports"
-            color="blue-grey-10"
-            :text-color="activeTab === 'reports' ? 'light-green-14' : 'white'"
-            :label="$t('fabReports')"
-            class="fab-action-uniform"
-          />
-          <!--
-  <q-fab-action
-            v-if="isAdmin"
-            label-position="right"
-            icon="outbound"
-            @click="goToStock"
-            color="blue-grey-10"
-            :text-color="activeTab === 'stock' ? 'light-green-14' : 'white'"
-            label="Stock"
-            class="fab-action-uniform"
-          />        
--->
-
-          <q-fab-action
-            label-position="right"
-            icon="outbound"
-            @click="goToAdmin"
-            color="blue-grey-10"
-            :text-color="activeTab === 'stock' ? 'light-green-14' : 'white'"
-            label="Admin"
-            class="fab-action-uniform"
-          />
-        </q-fab>
-      </div>
     </q-page-container>
-    <!-- Transparent Footer -->
-    <q-footer class="bg-blue-grey-10 text-white q-safe-area-bottom" elevated>
-      <div
-        class="row items-center justify-between q-pl-sm q-pr-sm q-pt-sm"
-        style="min-height: 85px; padding-bottom: 20px"
-      >
-        <!-- Left: Copyright -->
-        <div class="row items-center q-gutter-sm">
-          <q-icon name="copyright" size="20px" class="text-white" />
-          <div class="text-subtitle2">
-            <span class="text-light-green-14">Alvin</span>
-            <span class="text-white">Concepts</span>
-          </div>
-        </div>
-
-        <!-- Current Page Title + Logout -->
-        <div class="row items-center q-gutter-sm">
-          <!-- Page title -->
-          <div class="text-subtitle2 text-white q-mr-md">
-            {{ pageTitle }}
-          </div>
-
-          <!-- Logout button -->
-          <q-btn
-            dense
-            round
-            flat
-            color="white"
-            icon="exit_to_app"
-            class="hover-scale"
-            @click="logout"
-          />
-        </div>
-      </div>
-    </q-footer>
+    <FooterComponent :page-title="pageTitle" :brand-slogan="$t('slogan')" @logout="logout" />
   </q-layout>
 </template>
 
 <script setup>
+// Shared navigation, localization, and session-management dependencies.
 import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuth } from 'stores/auth'
 import { useRouter } from 'vue-router'
 import { Loading } from 'quasar'
+import HeaderComponent from 'components/HeaderComponent.vue'
+import FooterComponent from 'components/FooterComponent.vue'
 //const isAdmin = computed(() => ['Admin', 'SuperAdmin'].includes(auth.userDetails?.role))
+// Current route, user session, language, and navigation state.
 const auth = useAuth()
 import { useRoute } from 'vue-router'
 const router = useRouter()
 const route = useRoute()
 const { t: $t } = useI18n()
-const fabOpen = ref(false)
 const { locale } = useI18n()
+const languages = [
+  { code: 'en', label: 'English' },
+  { code: 'fr', label: 'Français' },
+]
 
-import wallpaperUrl from '../assets/124409.jpg'
-const wallpaperStyle = {
-  backgroundImage: `url(${wallpaperUrl})`,
-  backgroundRepeat: 'no-repeat',
-  backgroundSize: 'cover',
-  backgroundPosition: 'center center',
-  minHeight: '100dvh', // dynamic viewport height (safe for mobile)
-}
 const pageTitle = computed(() => {
   switch (route.name) {
     case 'home':
@@ -242,10 +167,11 @@ const pageTitle = computed(() => {
 })
 // Compute the current page title
 //const pageTitle = computed(() => pageTitles[route.name] || route.name || '')
+// Route actions for the shared header controls.
 const goToProfile = () => router.push('/manage-profile')
-const toggleLanguage = () => {
-  locale.value = locale.value === 'fr' ? 'en' : 'fr'
-  localStorage.setItem('lang', locale.value)
+const setLanguage = (language) => {
+  locale.value = language
+  localStorage.setItem('lang', language)
 }
 
 function resetTimer() {
@@ -319,6 +245,7 @@ const goToAdmin = async () => {
   }
 }
 
+// Restore the session and start activity-based inactivity tracking.
 onMounted(async () => {
   auth.loadFromLocalStorage()
   await auth.fetchUser()
@@ -350,58 +277,50 @@ onBeforeUnmount(() => {
 })
 </script>
 <style scoped>
+.app-page-container {
+  min-height: 100dvh;
+}
+
+.quick-actions-bar {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  min-height: 3.5rem;
+  box-sizing: border-box;
+  padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+  padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+  border-top: 1px solid rgb(255 255 255 / 10%);
+  box-shadow: 0 2px 8px rgb(15 23 42 / 10%);
+}
+
+.quick-actions {
+  width: 100%;
+  justify-content: center;
+}
+
+.quick-action-button {
+  min-height: 44px;
+}
+
+.quick-action-menu {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+:global(.q-menu.quick-action-menu) {
+  z-index: 7000 !important;
+  overflow: visible;
+}
+
 .fab-action-uniform {
   min-width: 120px; /* ensures all FAB actions have the same width */
   justify-content: flex-start; /* aligns icon and label nicely */
-}
-.custom-header {
-  height: 80px; /* make taller */
-  margin-bottom: 16px; /* space below header */
-  background: transparent; /* fully transparent */
-  backdrop-filter: blur(6px); /* subtle blur effect */
-  font-family: 'Epunda Slab', serif;
-  font-optical-sizing: auto;
-  font-weight: bold;
-  font-style: normal;
-  margin-bottom: 16px; /* keeps content from overlapping header */
-}
-
-/* Ensure row items never wrap */
-.custom-header .row.items-center {
-  flex-wrap: nowrap;
-}
-
-/* Ellipsis for long names */
-.ellipsis {
-  max-width: 150px; /* adjust as needed */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Responsive font sizes */
-@media (max-width: 600px) {
-  .custom-header .text-h6 {
-    font-size: 14px; /* smaller font on small screens */
-  }
-
-  .custom-header span.text-red-7 {
-    font-size: 14px; /* keep ratio with main text */
-  }
-
-  .custom-header .q-avatar {
-    width: 28px;
-    height: 28px;
-  }
-
-  .custom-header .q-icon {
-    width: 20px;
-    height: 20px;
-  }
-
-  .custom-header .ellipsis {
-    max-width: 100px; /* shrink allowed width */
-  }
 }
 .fade-enter-active,
 .fade-leave-active {

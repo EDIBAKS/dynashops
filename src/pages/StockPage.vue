@@ -104,11 +104,13 @@
 </template>
 
 <script setup>
+// Vue, stock data, and authenticated-user dependencies.
 import { ref, onMounted, computed } from 'vue'
 import { useQuasar } from 'quasar'
 import { supabase } from 'boot/supabase'
 import { useAuth } from 'stores/auth'
 
+// Selected location, stock rows, and table/search state.
 const $q = useQuasar()
 const auth = useAuth()
 

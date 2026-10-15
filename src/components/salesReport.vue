@@ -74,6 +74,7 @@
 </template>
 
 <script setup>
+// Sales data, authentication, and export libraries for this report.
 import { ref } from 'vue'
 import { supabase } from 'src/boot/supabase'
 import { date } from 'quasar'
@@ -82,6 +83,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { useAuth } from 'stores/auth'
 const auth = useAuth()
+// Pivoted product rows and shop totals for the selected date range.
 const rows = ref([])
 const loading = ref(false)
 const columns = ref([])
@@ -93,6 +95,7 @@ const endDate = ref(today)
 const shopSummary = ref([])
 const SALES_TARGET = 15000
 const totalSales = ref(0)
+// Fetch sales and rebuild the product-by-shop report data.
 async function fetchSalesReport() {
   loading.value = true
   rows.value = []
@@ -219,6 +222,7 @@ function pivotSalesData(data) {
   }
 }
 
+// Write the current pivoted rows to an Excel workbook.
 function exportToExcel() {
   const ws = XLSX.utils.json_to_sheet(rows.value)
   const wb = XLSX.utils.book_new()

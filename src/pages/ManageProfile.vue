@@ -289,12 +289,14 @@
 </template>
 
 <script setup>
+// Profile, authentication, and reference-data dependencies.
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useAuth } from 'stores/auth'
 import { supabase } from 'boot/supabase'
 import { useI18n } from 'vue-i18n'
+// Active user, role checks, lookup data, and profile forms.
 const { t: $t } = useI18n()
 const $q = useQuasar()
 const router = useRouter()
@@ -442,6 +444,7 @@ const logoutAndRedirect = async () => {
   await auth.logout() // calls Pinia logout, clears session
   window.location.href = '/' // redirect to login page
 }
+// Load the signed-in profile and its country, province, and DPC options.
 onMounted(async () => {
   try {
     const user = auth.user

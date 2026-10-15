@@ -186,12 +186,14 @@
 </template>
 
 <script setup>
+// Reactive inventory data, saved column preferences, and PDF export.
 import { ref, computed, onMounted, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { supabase } from 'boot/supabase'
 import { useAuth } from 'stores/auth'
 import jsPDF from 'jspdf'
 //import autoTable from 'jspdf-autotable'
+// Table, filtering, and export state for the stock monitor.
 const showExportDialog = ref(false)
 //const mode = ref('summary') // summary | detailed
 

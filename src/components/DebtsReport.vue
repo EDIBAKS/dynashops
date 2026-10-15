@@ -332,6 +332,7 @@
 </template>
 
 <script setup>
+// Data, UI, and distributor lookup dependencies.
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from 'boot/supabase'
 import { useQuasar } from 'quasar'
@@ -340,6 +341,7 @@ import DistributorSearch from 'components/DistributorSearch.vue'
 //import ProductSearch from 'components/ProductSearch.vue'
 //import ShopSearch from 'components/ShopSearch.vue'
 
+// Component state and role-aware report filters.
 const $q = useQuasar()
 
 const debts = ref([])

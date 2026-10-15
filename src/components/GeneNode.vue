@@ -1,156 +1,141 @@
 <template>
+    <!-- Recursive distributor card with its lazily loaded descendants. -->
   <q-expansion-item
     dense
-    class="q-mb-xs gene-node"
+    class="gene-node"
     expand-icon="chevron_right"
-    @show="onExpand"
     :disable="!node.has_children"
+    @show="onExpand"
   >
-    <!-- HEADER -->
     <template #header>
-      <div class="row items-center full-width q-px-sm">
-        <!-- LEFT COLUMN: Name + ID -->
-        <div class="col-6 col-sm-5 text-left text-weight-medium">
-          <div class="ellipsis">
-            {{ node.distributorname }}
-          </div>
+      <div class="row items-center no-wrap full-width q-py-xs">
+        <q-avatar size="32px" class="q-mr-sm bg-blue-grey-1 text-blue-grey-9 text-weight-bold">
+          <span style="font-size: 12px">{{ initials }}</span>
+        </q-avatar>
 
-          <!-- ID below name (mobile only) -->
-          <div class="text-caption text-grey-7 lt-sm">
-            {{ node.out_distributoridno }}
-          </div>
+        <div class="col text-left" style="min-width: 0">
+          <div class="ellipsis text-weight-medium name">{{ node.distributorname }}</div>
+          <div class="text-caption text-grey-7">{{ node.out_distributoridno }}</div>
         </div>
 
-        <!-- CENTER COLUMN: ID (desktop only) -->
-        <div class="col-3 text-center text-caption text-grey-7 gt-xs">
-          {{ node.out_distributoridno }}
-        </div>
-
-        <!-- RIGHT COLUMN: PBV + GBV -->
-        <div class="col-6 col-sm-4 text-right text-caption">
-          <div class="text-primary text-bold">PBV: {{ node.personal_bv }}</div>
-
-          <!-- GBV below PBV (mobile only) -->
-          <div class="text-positive lt-sm text-bold">GBV: {{ gbv }}</div>
-
-          <!-- GBV inline (desktop only) -->
-          <span class="q-ml-xs text-positive gt-xs text-bold"> GBV: {{ gbv }} </span>
+        <div class="row items-center no-wrap q-gutter-xs">
+          <q-badge :color="pbvColor" outline class="text-bold q-pa-xs">
+            PBV {{ Number(node.personal_bv ?? 0).toLocaleString() }}
+          </q-badge>
+          <q-badge color="blue-grey-9" class="text-bold q-pa-xs">
+            GBV {{ gbvLabel }}
+          </q-badge>
         </div>
       </div>
     </template>
 
-    <!-- LOADER -->
     <q-inner-loading :showing="loading">
       <div class="text-center q-pa-sm">Loading...</div>
     </q-inner-loading>
 
-    <!-- CHILD NODES -->
-    <q-list v-if="children.length">
+    <q-list v-if="sortedChildren.length" class="children">
       <GeneNode
-        v-for="child in children"
+        v-for="child in sortedChildren"
         :key="child.out_distributoridno"
         :node="child"
         :startDate="startDate"
         :endDate="endDate"
+        :sort-by="sortBy"
+        :descending="descending"
+        :color-by-personal-bv="colorByPersonalBv"
       />
     </q-list>
   </q-expansion-item>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+// Dependencies for recursive rendering, data loading, and genealogy display.
+import { computed, ref, inject } from 'vue'
 import { supabase } from 'src/boot/supabase'
 import GeneNode from './GeneNode.vue'
+import { useQuasar } from 'quasar'
+import { withGbv, sortNodes, nodeInitials } from 'src/utils/genealogy'
 
 const props = defineProps({
-  node: Object, // Distributor node
-  startDate: String, // From date
-  endDate: String, // To date
+  node: Object,
+  startDate: String,
+  endDate: String,
+  sortBy: { type: String, default: 'name' },
+  descending: { type: Boolean, default: false },
+  colorByPersonalBv: { type: Boolean, default: false },
 })
 
-const children = ref([]) // Direct children nodes
-const loading = ref(false) // Loader while fetching children
-const gbv = ref(0) // Group BV for this node
-const loaded = ref(false) // Tracks if children already loaded
+const $q = useQuasar()
+// Parent report can provide a cache so exports include expanded branches
+const geneCache = inject('geneCache', null)
+// Cached children and loading flags control expansion requests.
+const children = ref([])
+const loading = ref(false)
+const loaded = ref(false)
 
-// Compute the label text: Name | PBV | GBV
-//const nodeLabel = computed(() => {
-// return `${props.node.out_distributoridno}|${props.node.distributorname} | PBV: ${props.node.personal_bv} | GBV: ${gbv.value}`
-//})
+// Labels and colors are derived from the current distributor.
+const initials = computed(() => nodeInitials(props.node))
+const sortedChildren = computed(() =>
+  sortNodes(children.value, props.sortBy === 'members' ? 'name' : props.sortBy, props.descending),
+)
 
-// Load children and GBV when node expands
+const gbvLabel = computed(() => {
+  const v = props.node.gbv ?? props.node.group_bv ?? props.node.out_gbv
+  return v == null ? '—' : Number(v).toLocaleString()
+})
+
+const pbvColor = computed(() => {
+  const pbv = Number(props.node.personal_bv ?? 0)
+  if (!props.colorByPersonalBv) return 'primary'
+  if (pbv >= 50) return 'positive'
+  if (pbv >= 10) return 'orange-8'
+  return 'negative'
+})
+
+// Load direct reports once, then share them with report exports.
 async function onExpand() {
-  if (loaded.value) return // Already loaded
-
+  if (loaded.value) return
   loading.value = true
-
   try {
-    // 1️⃣ Load direct children
-    const { data: childrenData, error: childrenError } = await supabase.rpc(
-      'get_direct_children_with_bv',
-      {
-        p_root: props.node.out_distributoridno,
-        p_date_from: props.startDate,
-        p_date_to: props.endDate,
-      },
-    )
-
-    if (!childrenError && Array.isArray(childrenData)) {
-      children.value = childrenData
-    }
-
-    // 2️⃣ Load GBV for this node (recursive)
-    const { data: gbvData, error: gbvError } = await supabase.rpc('compute_group_bv', {
-      p_distributor: props.node.out_distributoridno,
+    const { data, error } = await supabase.rpc('get_direct_children_with_bv', {
+      p_root: props.node.out_distributoridno,
       p_date_from: props.startDate,
       p_date_to: props.endDate,
     })
-
-    if (!gbvError) {
-      gbv.value = gbvData
-    }
+    if (error) throw error
+    children.value = await withGbv(Array.isArray(data) ? data : [], props.startDate, props.endDate)
+    if (geneCache) geneCache[props.node.out_distributoridno] = children.value
+    loaded.value = true
   } catch (err) {
-    console.error(err)
+    console.error('Failed to load distributor downline:', err)
+    $q.notify({
+      type: 'negative',
+      message: err?.message || 'Failed to load distributor downline',
+    })
   } finally {
     loading.value = false
-    loaded.value = true
   }
 }
 </script>
 
 <style scoped>
-/* Indent children for better mobile readability */
-.q-expansion-item {
-  padding-left: 12px;
-}
-
-/* Default (collapsed) node divider */
 .gene-node {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  border-bottom: 1px solid #e2e8f0;
 }
-
-/* Minimum touch-friendly height */
-.gene-node .q-expansion-item__container {
-  min-height: 42px;
-}
-
-/* ============================= */
-/* EXPANDED NODE NAME STYLING */
-/* ============================= */
-
-/* Only the expanded node's NAME turns green */
-.gene-node.q-expansion-item--expanded .q-expansion-item__header .col-5 {
-  color: #21ba45; /* Quasar green */
-  font-weight: 600;
-}
-
-/* Optional: subtle background highlight for expanded node */
-.gene-node.q-expansion-item--expanded {
-  background-color: rgba(33, 186, 69, 0.05);
-}
-
-/* Remove divider when expanded (clean look) */
-.gene-node.q-expansion-item--expanded {
+.gene-node:last-child {
   border-bottom: none;
+}
+.gene-node :deep(.q-item) {
+  min-height: 46px;
+}
+.children {
+  margin-left: 18px;
+  border-left: 2px solid #e2e8f0;
+}
+.gene-node.q-expansion-item--expanded > .q-expansion-item__container > .q-item .name {
+  color: #21ba45;
+}
+.gene-node.q-expansion-item--expanded > .q-expansion-item__container > .q-item {
+  background-color: rgba(33, 186, 69, 0.06);
 }
 </style>

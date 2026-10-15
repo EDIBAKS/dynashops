@@ -1,110 +1,113 @@
 <template>
-  <q-page class="flex flex-center" :style="wallpaperStyle">
-    <div class="q-pa-md" style="width: 100%; max-width: 480px">
-      <q-card
-        class="q-pa-md bg-transparent custom-form"
-        style="
-          width: 100%;
-
-          border-radius: 12px;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        "
-        @mouseover="hover = true"
-        @mouseleave="hover = false"
-        :class="{ hovered: hover }"
+  <q-page class="flex items-center justify-center bg-gray-100 px-3 py-6 sm:px-4">
+    <div class="w-full max-w-md">
+      <form
+        class="overflow-hidden rounded-2xl bg-white shadow-xl ring-1 ring-slate-200 sm:rounded-3xl"
+        @submit.prevent="login"
       >
         <!-- Logo / Header -->
-        <div class="text-center q-mb-lg">
-          <q-icon name="shopping_cart" class="text-light-green-14" size="56px" />
+        <div class="bg-gradient-to-r from-slate-800 to-slate-700 px-6 py-7 text-center sm:py-9">
+          <q-icon name="shopping_cart" class="text-light-green-14" size="52px" />
           <div class="text-h5 text-weight-bold q-mt-sm">
             <span class="text-light-green-14">Dyna</span><span class="text-white">Shop</span>
           </div>
         </div>
 
-        <!-- Email Input -->
-        <!-- Email Input -->
-        <div class="q-mb-sm">
-          <div class="text-caption text-white q-mb-xs">{{ $t('email') }}</div>
+        <!-- Enter credentials and submit the sign-in request. -->
+        <div class="space-y-4 px-5 py-6 sm:space-y-5 sm:px-8 sm:py-8">
+          <div
+            v-if="sessionExpired"
+            role="alert"
+            class="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-amber-900"
+          >
+            <q-icon name="schedule" size="22px" class="mt-0.5 shrink-0 text-amber-600" />
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-bold">{{ $t('sessionExpiredTitle') }}</div>
+              <div class="mt-0.5 text-sm leading-snug">{{ $t('sessionExpired') }}</div>
+            </div>
+            <button
+              type="button"
+              class="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-amber-700 transition hover:bg-amber-100"
+              aria-label="Dismiss"
+              @click="sessionExpired = false"
+            >
+              <q-icon name="close" size="18px" />
+            </button>
+          </div>
 
-          <q-input
-            v-model="email"
-            type="email"
-            outlined
-            dense
-            rounded
-            class="white-input"
-            input-class="text-white text-center"
-            style="height: 44px"
-          />
-        </div>
+          <div>
+            <label for="login-email" class="mb-1.5 block text-sm font-semibold text-slate-700">
+              {{ $t('email') }}
+            </label>
+            <input
+              id="login-email"
+              v-model="email"
+              type="email"
+              inputmode="email"
+              autocomplete="email"
+              autocapitalize="none"
+              spellcheck="false"
+              required
+              :disabled="loading"
+              class="block min-h-[3rem] w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-slate-600 focus:bg-white focus:ring-4 focus:ring-slate-200 disabled:opacity-60"
+            />
+          </div>
 
-        <!-- Password Input -->
-        <div class="q-mb-sm">
-          <div class="text-caption text-white q-mb-xs">{{ $t('password') }}</div>
-          <q-input
-            v-model="password"
-            type="password"
-            outlined
-            dense
-            rounded
-            class="white-input"
-            input-class="text-white text-center"
-            style="height: 44px; border-radius: 22px"
-          />
-        </div>
+          <div>
+            <label for="login-password" class="mb-1.5 block text-sm font-semibold text-slate-700">
+              {{ $t('password') }}
+            </label>
+            <input
+              id="login-password"
+              v-model="password"
+              type="password"
+              autocomplete="current-password"
+              required
+              :disabled="loading"
+              class="block min-h-[3rem] w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3 text-base text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-slate-600 focus:bg-white focus:ring-4 focus:ring-slate-200 disabled:opacity-60"
+            />
+          </div>
 
-        <!-- Loader -->
-        <div v-if="loading" class="q-mt-md flex flex-center">
-          <q-spinner-hourglass color="light-green-14" size="30px" />
+          <button
+            type="submit"
+            :disabled="loading"
+            class="flex min-h-[3rem] w-full items-center justify-center gap-2 rounded-xl bg-[#37474f] px-4 py-3 text-base font-semibold text-white shadow-md transition hover:bg-[#263238] active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-[#b0bec5] disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            <q-spinner v-if="loading" size="20px" color="white" />
+            <span>{{ $t('login') }}</span>
+          </button>
         </div>
-        <!-- Login Button -->
-        <q-btn
-          :label="$t('login')"
-          @click="login"
-          class="full-width q-mt-md bg-light-green-14 text-white"
-          style="height: 44px; border-radius: 22px"
-        />
-      </q-card>
-    </div>
-    <!-- ✅ Bottom-left footer content -->
-    <div
-      class="row items-center q-gutter-sm text-white"
-      style="position: absolute; bottom: 31px; left: 16px; z-index: 10; opacity: 0.9"
-    >
-      <q-icon name="copyright" size="20px" class="text-white" />
-      <div class="text-subtitle2">
-        <span class="text-light-green-14">Alvin</span>
-        <span class="text-white">Concepts</span>
+      </form>
+
+      <div class="mt-6 flex items-center justify-center gap-1.5 text-sm text-slate-500">
+        <q-icon name="copyright" size="18px" />
+        <span class="font-semibold"><span class="text-light-green-14">Alvin</span>Concepts</span>
       </div>
     </div>
   </q-page>
 </template>
 
 <script setup>
+// Authentication, routing, and notification dependencies.
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useAuth } from 'stores/auth'
 import { useI18n } from 'vue-i18n'
-import wallpaperUrl from '../assets/124409.jpg'
 
-const wallpaperStyle = {
-  backgroundImage: `url(${wallpaperUrl})`,
-  backgroundRepeat: 'no-repeat',
-  backgroundSize: 'cover',
-  backgroundPosition: 'center center',
-  backgroundAttachment: 'fixed',
-  minHeight: '100vh',
-  padding: '20px', // ensures space on very small screens
-}
+// Set by auth.logout(true) when the user was signed out for inactivity; shown once
+const sessionExpired = ref(sessionStorage.getItem('session-expired') === '1')
+sessionStorage.removeItem('session-expired')
+
+// Login form and one-time session-expiry state.
 const router = useRouter()
 const $q = useQuasar()
 const auth = useAuth()
 const { t: $t } = useI18n()
 const email = ref('')
 const password = ref('')
-const hover = ref(false)
 const loading = ref(false)
+// Authenticate the user and report success or failure.
 async function login() {
   loading.value = true
   try {
@@ -128,27 +131,3 @@ async function login() {
   }
 }
 </script>
-
-<style scoped>
-/* Optional: subtle hover effect for card */
-.hovered {
-  transform: translateY(-2px);
-  transition: all 0.2s ease-in-out;
-}
-/* Apply to all outlined inputs/selects inside your form */
-.custom-form ::v-deep(.q-field--outlined .q-field__control) {
-  border: 2px solid #3cee6f !important; /* darker border */
-  border-radius: 22px; /* optional: smoother edges */
-}
-
-/* Stronger border on hover */
-.custom-form ::v-deep(.q-field--outlined:hover .q-field__control) {
-  border-color: #111 !important;
-}
-
-/* Stronger + colored border when focused */
-.custom-form ::v-deep(.q-field--outlined.q-field--focused .q-field__control) {
-  border: 2px solid #0d47a1 !important; /* deep blue when focused */
-  box-shadow: 0 0 4px rgba(13, 71, 161, 0.5); /* optional glow */
-}
-</style>

@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import { supabase } from 'boot/supabase'
-import { Notify } from 'quasar'
 
 export const useAuth = defineStore('auth', {
+  // Holds the active identity and inactivity timeout configuration.
   state: () => ({
     user: null, // Supabase auth user
     userDetails: null, // Additional user details from `shopusers` table
@@ -56,21 +56,14 @@ export const useAuth = defineStore('auth', {
 
     // ✅ Logout user (can be triggered manually or automatically)
     async logout(showMessage = false) {
+      // The login page reads this flag and explains why the user was signed out
+      if (showMessage) sessionStorage.setItem('session-expired', '1')
+
       await supabase.auth.signOut()
       this.clearInactivityTimer()
       this.user = null
       this.userDetails = null
       localStorage.removeItem('auth-store')
-
-      if (showMessage) {
-        Notify.create({
-          message: '⚠️ Session expired due to inactivity. Please log in again.',
-          color: 'negative',
-          position: 'top',
-          timeout: 4000,
-          icon: 'warning',
-        })
-      }
     },
 
     // ✅ Persist to localStorage

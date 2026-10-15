@@ -206,6 +206,7 @@ async function buildStockData() {
 
     /* -------- BUILD ROWS -------- */
     rows.value = products.map((prod) => {
+            // Aggregate each product?s stock and value across all locations.
       const row = {
         productcode: prod.productcode,
         productname: prod.productname,

@@ -1,323 +1,362 @@
 <template>
-  <q-page class="flex flex-center q-pa-sm">
-    <q-card
-      class="q-pa-sm bg-transparent"
-      style="
-        max-width: 600px;
-        width: 100%;
-        border: 0px solid green;
-        border-radius: 0;
-        box-shadow: none;
-      "
-    >
-      <!-- Header -->
-      <q-card-section class="row justify-left">
-        <div class="column items-end">
-          <div class="text-h5 text-bold text-light-green-14">{{ shopName }}</div>
-          <div class="text-subtitle1 text-white text-bold q-mt-xs">
-            {{ $t('newSalesEntry') }}
+  <q-page class="sales-page flex justify-center bg-gray-100 px-4 py-3 sm:px-6 sm:py-4">
+    <div class="sales-card w-full max-w-5xl">
+      <div
+        class="mb-2 flex items-center justify-between gap-3 rounded-xl bg-gradient-to-r from-slate-800 to-slate-700 px-3 py-2 text-white sm:px-4"
+      >
+        <div class="flex min-w-0 items-center gap-4">
+          <div
+            class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/10 text-emerald-300 sm:h-10 sm:w-10"
+          >
+            <q-icon name="shopping_bag" size="21px" />
+          </div>
+          <div class="min-w-0">
+            <div class="truncate text-base font-bold sm:text-xl">{{ shopName }}</div>
+            <div class="mt-0.5 text-[0.7rem] font-medium text-slate-200 sm:text-xs">
+              {{ $t('newSalesEntry') }}
+            </div>
           </div>
         </div>
-      </q-card-section>
-      <CurrencyToggle v-slot="{ convert }">
-        <q-form @submit.prevent="submitSale" class="custom-form">
-          <!-- Sale Date -->
-          <div class="q-mb-sm">
-            <div
-              class="text-caption text-white text-bold q-mb-xs flex justify-between items-center"
-            >
-              <span>{{ $t('salesDate') }}</span>
-              <span class="text-red-9 text-bold"></span>
-            </div>
+        <div
+          class="hidden shrink-0 items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-semibold text-white sm:flex"
+        >
+          <q-icon name="shopping_cart" size="18px" class="text-emerald-300" />
+          <span>{{ form.items.length }}</span>
+          <span>{{ $t('products') }}</span>
+        </div>
+      </div>
 
-            <q-input
-              v-model="form.salesdate"
-              type="date"
-              dense
-              outlined
-              class="white-input custom-border bg-blue-grey-10"
-              input-class="text-white text-bold"
-              :min="dateMin"
-              :max="dateMax"
-              popup-content-class="my-date-popup"
-              :disable="loading"
-            />
-          </div>
-
-          <!-- Distributor ID -->
-          <div class="q-mb-sm">
-            <div class="text-caption text-white text-bold q-mb-xs">
-              {{ $t('distributorId') }}
-            </div>
-            <q-input
-              v-model="form.distributoridno"
-              dense
-              outlined
-              class="white-input text-semi-bold text-center text-uppercase"
-              input-class="text-white text-bold text-center text-uppercase"
-              @blur="validateDistributorIDNO"
-              :disable="loading"
-            />
-          </div>
-
-          <div v-if="distributorError" class="text-negative text-caption q-mb-md">
-            {{ distributorError }}
-          </div>
-
-          <!-- Search by Name -->
-          <div class="q-mb-sm">
-            <div
-              class="text-caption text-white text-bold q-mb-xs flex justify-between items-center"
-            >
-              <span>{{ $t('searchByName') }}</span>
-              <span v-if="searchQuery.trim() !== '' && !confirmedDistributor" class="text-red">
-                {{ $t('noResultsFound') }}
-              </span>
-            </div>
-            <q-input
-              v-model="searchQuery"
-              dense
-              outlined
-              class="white-input text-semi-bold text-center text-uppercase"
-              input-class="text-white text-bold text-center text-uppercase"
-              :disable="loading"
-            />
-          </div>
-
-          <ul
-            v-if="filteredDistributors.length && searchQuery.trim() !== '' && !confirmedDistributor"
-            class="suggestion-list"
-          >
-            <li
-              v-for="distributor in filteredDistributors"
-              :key="distributor.DistributorIDNO"
-              @click="selectDistributor(distributor)"
-              class="distributor-option"
-            >
-              {{ distributor.DistributorNames }}
-            </li>
-          </ul>
-
-          <!-- Receipt No & DPC Code -->
-          <div class="row q-col-gutter-sm">
-            <!-- DPC Code -->
-            <div class="col-6">
-              <div v-if="isAdmin" class="q-mb-sm">
-                <div class="text-caption text-white text-bold q-mb-xs">
-                  {{ $t('selectDPC') }}
-                </div>
-                <div class="select-wrapper">
-                  <select
-                    v-model="form.dpccode"
-                    class="custom_select native-select full-width text-center bg-blue-grey-10"
-                  >
+      <CurrencyToggle v-slot="{ convert, formatCurrency }">
+        <!-- Gather sale details, products, and cart items for submission. -->
+        <q-form @submit.prevent="submitSale" class="custom-form sales-form space-y-2 px-1 py-1 pb-8 sm:px-3">
+          <!-- Receipt, distributor, and date details. -->
+          <section class="sales-details-section">
+            <div class="sales-details-grid">
+              <div class="sales-field">
+                <label class="sales-label">{{ isAdmin ? $t('selectDPC') : $t('dpcCode') }}</label>
+                <div v-if="isAdmin" class="select-wrapper">
+                  <select v-model="form.dpccode" class="sales-select">
                     <option v-for="option in dpcOptions" :key="option.value" :value="option.value">
                       {{ option.label }}
                     </option>
                   </select>
                 </div>
-              </div>
-
-              <div v-else class="q-mb-sm">
-                <div class="text-caption text-white text-bold q-mb-xs">
-                  {{ $t('dpcCode') }}
-                </div>
-                <q-input
+                <input
+                  v-else
                   v-model="form.dpccode"
-                  dense
-                  outlined
                   readonly
-                  class="white-input full-width text-semi-bold text-center"
-                  input-class="text-white text-bold text-center"
-                  :disable="loading"
+                  class="sales-native-input"
                 />
               </div>
-            </div>
 
-            <!-- Receipt No -->
-            <div class="col-6 q-mb-sm">
-              <div class="text-caption text-white text-bold q-mb-xs">
-                {{ $t('receiptNo') }}
+              <div class="sales-field">
+                <label class="sales-label">{{ $t('salesDate') }}</label>
+                <input
+                  v-model="form.salesdate"
+                  type="date"
+                  class="sales-native-input"
+                  :min="dateMin"
+                  :max="dateMax"
+                  :disabled="loading"
+                />
               </div>
-              <q-input
-                v-model="form.receiptno"
-                dense
-                outlined
-                ref="receiptInput"
-                class="white-input"
-                input-class="text-white text-bold text-center"
-                input-style="text-transform: uppercase"
-                @blur="validateReceiptNo"
-                :disable="loading"
-              />
-            </div>
-          </div>
 
-          <!-- Product Selector with Quantity, Price, BV -->
-          <div class="q-mb-md">
-            <div class="text-subtitle2 text-white q-mb-sm">{{ $t('products') }}</div>
+              <div class="sales-field">
+                <label class="sales-label">{{ $t('receiptNo') }}</label>
+                <div class="receipt-input-wrap">
+                  <input
+                    v-model="form.receiptno"
+                    type="text"
+                    autocomplete="off"
+                    ref="receiptInput"
+                    class="sales-native-input uppercase receipt-number-input"
+                    :readonly="loading || receiptCheckStatus === 'checking'"
+                    @input="resetReceiptCheckStatus"
+                    @blur="handleReceiptBlur"
+                  />
+                  <q-spinner
+                    v-if="receiptCheckStatus === 'checking'"
+                    size="18px"
+                    color="primary"
+                    class="receipt-check-status"
+                    role="status"
+                    aria-label="Checking receipt number"
+                  />
+                  <q-icon
+                    v-else-if="receiptCheckStatus === 'valid'"
+                    name="check_circle"
+                    size="20px"
+                    color="positive"
+                    class="receipt-check-status"
+                    role="status"
+                    aria-label="Receipt number is available"
+                  />
+                </div>
+              </div>
 
-            <!-- Row 1: Product Select -->
-            <div class="row q-col-gutter-sm q-mb-sm">
-              <div class="col-12">
-                <div class="text-caption text-white q-mb-xs">{{ $t('selectProduct') }}</div>
-                <q-select
-                  filled
-                  v-model="selectedProductCode"
-                  use-input
-                  input-debounce="300"
-                  :label="$t('selectProduct')"
-                  :options="filteredProducts"
-                  emit-value
-                  map-options
-                  class="full-width bg-light-green-14"
-                  style="border-radius: 7px"
-                  input-class="text-white text-bold text-center"
-                  popup-content-class="text-white bg-dark"
-                  @filter="filterProducts"
-                  @update:model-value="updateSelectedProduct"
+              <div class="sales-field">
+                <label class="sales-label">{{ $t('distributorId') }}</label>
+                <div class="receipt-input-wrap">
+                  <input
+                    v-model="form.distributoridno"
+                    type="text"
+                    autocomplete="off"
+                    class="sales-native-input uppercase receipt-number-input"
+                    @input="resetDistributorCheckStatus"
+                    @blur="validateDistributorIDNO"
+                    :disabled="loading"
+                  />
+                  <q-icon
+                    v-if="distributorCheckStatus === 'valid'"
+                    name="check_circle"
+                    size="20px"
+                    color="positive"
+                    class="receipt-check-status"
+                    role="status"
+                    aria-label="Distributor ID is valid"
+                  />
+                </div>
+              </div>
+
+              <div class="sales-field">
+                <label class="sales-label">{{ $t('searchByName') }}</label>
+                <input
+                  v-model="searchQuery"
+                  type="search"
+                  autocomplete="off"
+                  class="sales-native-input"
+                  :disabled="loading"
+                />
+                <div
+                  v-if="searchQuery.trim() !== '' && !confirmedDistributor && !filteredDistributors.length"
+                  class="mt-1 text-xs font-medium text-red-600"
                 >
-                  <template v-slot:no-option>
-                    <q-item>
-                      <q-item-section class="text-grey"> No results </q-item-section>
-                    </q-item>
-                  </template>
-                </q-select>
+                  {{ $t('noResultsFound') }}
+                </div>
+              </div>
+
+              <ul
+                v-if="filteredDistributors.length && searchQuery.trim() !== '' && !confirmedDistributor"
+                class="suggestion-list sales-suggestion-list"
+              >
+                <li
+                  v-for="distributor in filteredDistributors"
+                  :key="distributor.DistributorIDNO"
+                  @click="selectDistributor(distributor)"
+                  class="distributor-option"
+                >
+                  <q-icon name="person" size="18px" class="mr-2 text-slate-500" />
+                  {{ distributor.DistributorNames }}
+                </li>
+              </ul>
+
+              <div v-if="distributorError" class="sales-field-error text-sm font-medium text-red-600">
+                {{ distributorError }}
               </div>
             </div>
-            <div class="row q-col-gutter-sm q-mt-sm">
-              <div class="col bg-transparent quantity-label flex flex-center">
-                {{ $t('quantity') }}: {{ availableQuantity }}
+          </section>
+
+          <!-- Choose a product and set its sale quantity. -->
+          <section class="sales-product-section">
+            <div class="sales-field sales-product-field mb-2">
+              <label class="sales-label text-xs">{{ $t('selectProduct') }}</label>
+              <div class="sales-product-picker">
+                <q-icon name="search" size="19px" class="sales-product-search-icon" />
+                <input
+                  v-model="productSearch"
+                  type="search"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-controls="sales-product-options"
+                  :aria-expanded="showProductOptions"
+                  :placeholder="$t('selectProduct')"
+                  class="sales-native-input sales-product-search"
+                  :disabled="loading"
+                  @focus="showProductOptions = true"
+                  @blur="showProductOptions = false"
+                  @input="handleProductSearch"
+                  @keydown.esc="showProductOptions = false"
+                />
+                <button
+                  v-if="productSearch"
+                  type="button"
+                  class="sales-product-clear"
+                  :aria-label="$t('clearProductSelection')"
+                  @mousedown.prevent
+                  @click="clearProductSelection"
+                >
+                  <q-icon name="close" size="18px" />
+                </button>
+
+                <ul
+                  v-if="showProductOptions"
+                  id="sales-product-options"
+                  role="listbox"
+                  class="sales-product-options"
+                >
+                  <li v-for="product in productOptions" :key="product.productcode">
+                    <button
+                      type="button"
+                      role="option"
+                      :aria-selected="selectedProductCode === product.productcode"
+                      class="sales-product-option"
+                      @mousedown.prevent
+                      @click="chooseProduct(product)"
+                    >
+                      <span class="min-w-0 truncate">{{ product.productname }}</span>
+                      <q-icon
+                        v-if="selectedProductCode === product.productcode"
+                        name="check"
+                        size="17px"
+                        class="shrink-0 text-light-green-4"
+                      />
+                    </button>
+                  </li>
+                  <li v-if="productOptions.length === 0" class="sales-product-empty">
+                    {{ $t('noResultsFound') }}
+                  </li>
+                </ul>
               </div>
             </div>
 
-            <!-- Row 2: Quantity, Price, BV, Add Button -->
-            <!-- Row 2: Quantity, Price, BV -->
-            <div class="row q-col-gutter-sm q-mb-sm">
-              <!-- Quantity -->
-              <div class="col-4">
-                <div class="text-caption text-white q-mb-xs">{{ $t('qty') }}</div>
-                <q-input
+            <div class="sales-stock-indicator">
+              <q-icon name="inventory" size="15px" class="text-blue-grey-7" />
+              <span>{{ $t('quantity') }}:</span>
+              <q-spinner-dots
+                v-if="stockLoading"
+                color="blue-grey-8"
+                size="20px"
+                aria-label="Loading available quantity"
+              />
+              <strong v-else>{{ availableQuantity }}</strong>
+            </div>
+
+            <div class="sales-quantity-grid">
+              <div class="sales-field">
+                <label class="sales-label">{{ $t('qty') }}</label>
+                <input
                   v-model.number="selectedQuantity"
                   type="number"
-                  dense
-                  outlined
-                  class="full-width"
-                  input-class="text-white text-bold text-center"
-                  @update:model-value="updateTotals"
-                  :disable="loading"
+                  min="1"
+                  inputmode="numeric"
+                  class="sales-native-input text-center font-semibold"
+                  @input="updateTotals"
+                  :disabled="loading"
                 />
               </div>
-
-              <!-- Total Price -->
-              <div class="col-4">
-                <div class="text-caption text-white q-mb-xs">{{ $t('price') }}</div>
-                <q-input
-                  :model-value="totalPrice"
-                  type="number"
-                  dense
-                  outlined
-                  readonly
-                  class="white-input full-width"
-                  input-class="text-white text-bold text-center"
-                  :disable="loading"
-                />
+              <div class="sales-field">
+                <label class="sales-label">{{ $t('price') }}</label>
+                <div class="sales-readonly-value">{{ totalPrice || '—' }}</div>
               </div>
-
-              <!-- Total BV -->
-              <div class="col-4">
-                <div class="text-caption text-white q-mb-xs">{{ $t('bv') }}</div>
-                <q-input
-                  :model-value="totalBV"
-                  type="number"
-                  dense
-                  outlined
-                  readonly
-                  class="white-input full-width"
-                  input-class="text-white text-bold text-center"
-                  :disable="loading"
-                />
+              <div class="sales-field">
+                <label class="sales-label">{{ $t('bv') }}</label>
+                <div class="sales-readonly-value">{{ totalBV || '—' }}</div>
               </div>
             </div>
 
-            <!-- Row 3: Add Product Button -->
-            <div class="row q-mb-sm">
-              <div class="col-12 flex items-end">
-                <q-btn
-                  icon="shopping_cart"
-                  color="primary"
-                  :label="$t('addProduct')"
-                  class="full-width q-mt-sm"
-                  @click="addProduct"
-                  :disable="disableAddButton"
-                />
+            <q-btn
+              icon="add_shopping_cart"
+              color="blue-grey-9"
+              :label="$t('addProduct')"
+              class="sales-action-btn full-width q-mt-sm rounded-xl bg-blue-grey-9 font-semibold text-white shadow-md"
+              @click="addProduct"
+              :disable="disableAddButton"
+            />
+          </section>
+
+          <!-- Review and remove products before saving the sale. -->
+          <section class="sales-cart-section">
+            <div class="mb-4 flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5">
+                <div class="sales-section-icon bg-amber-50 text-amber-700">
+                  <q-icon name="shopping_cart" size="18px" />
+                </div>
+                <div>
+                  <p class="text-[0.65rem] text-slate-500">{{ form.items.length }} {{ $t('products') }}</p>
+                </div>
               </div>
+              <q-badge
+                rounded
+                color="blue-grey-1"
+                text-color="blue-grey-9"
+                class="px-3 py-2 text-sm font-bold"
+              >
+                {{ form.items.length }}
+              </q-badge>
             </div>
 
-            <!-- Product List -->
-            <q-list bordered separator class="custom-list q-mt-md bg-blue-grey-10 text-white">
+            <div v-if="form.items.length === 0" class="sales-empty-cart rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-5 text-center">
+              <q-icon name="production_quantity_limits" size="40px" class="text-slate-400" />
+              <p class="mt-1 text-sm text-slate-500">{{ $t('selectProduct') }}</p>
+            </div>
+
+            <q-list v-else class="sales-cart-list">
               <q-item
                 v-for="(product, index) in form.items"
                 :key="index"
-                class="q-py-xs items-start custom-item-separator"
+                class="sales-cart-item px-3 py-3 sm:px-4"
               >
-                <q-item-section>
-                  <div class="text-subtitle2 text-white text-semi-bold">
+                <q-item-section class="min-w-0">
+                  <q-item-label class="sales-cart-product-name">
                     {{ product.productname }}
-                  </div>
-                  <div class="text-caption text-white product-summary">
-                    {{ $t('qty') }}: {{ product.quantity }} | {{ $t('price') }}:
-                    {{ product.unitprice * product.quantity }} | {{ $t('bv') }}:
-                    {{ product.unitbv * product.quantity }} | FCFA
-                    <span class="q-ml-sm text-light-green-14 text-bold">
-                      {{ product.unitprice * product.quantity * exchangeRate }}
-                    </span>
+                  </q-item-label>
+                  <div class="sales-cart-product-details">
+                    <span>{{ $t('price') }}: {{ convert(product.unitprice * product.quantity) }}</span>
+                    <span>{{ $t('bv') }}: {{ product.unitbv * product.quantity }}</span>
+                    <span>{{ $t('qty') }}: {{ product.quantity }}</span>
                   </div>
                 </q-item-section>
-                <q-item-section side>
-                  <q-btn flat dense icon="delete" color="negative" @click="removeItem(index)" />
+                <q-item-section side class="sales-cart-actions">
+                  <q-btn
+                    flat
+                    round
+                    dense
+                    icon="delete_outline"
+                    color="negative"
+                    aria-label="Remove product"
+                    @click="removeItem(index)"
+                  />
                 </q-item-section>
               </q-item>
             </q-list>
-          </div>
 
-          <!-- Totals -->
-          <div class="q-mb-md column items-end text-white">
-            <!-- Total Amount -->
-            <div class="row items-center">
-              <div class="text-subtitle1 text-bold">{{ $t('totalAmount') }}</div>
-              <div class="currency-display text-bold text-light-green-14 q-ml-sm">
-                <span class="amount">{{ convert(totalReceiptAmount) }}</span>
+            <div class="sales-cart-totals">
+              <div class="sales-cart-total-heading">
+                <q-icon name="receipt" size="18px" />
+                <span>{{ $t('totalAmount') }}</span>
+              </div>
+              <div class="sales-cart-total-row">
+                <span>USD</span>
+                <strong>{{ formatCurrency(totalReceiptAmount, 'dollar') }}</strong>
+              </div>
+              <div class="sales-cart-total-row">
+                <span>FC</span>
+                <strong>{{ formatCurrency(totalReceiptAmount, 'local') }}</strong>
+              </div>
+              <div class="sales-cart-total-row sales-cart-total-bv">
+                <span>{{ $t('bv') }}</span>
+                <strong>{{ totalReceiptBv }}</strong>
               </div>
             </div>
+          </section>
 
-            <!-- Total BV -->
-            <div class="row items-center q-mt-xs">
-              <div class="text-subtitle1 text-bold">BV</div>
-              <div class="currency-display text-bold text-light-green-14 q-ml-sm">
-                <span>{{ totalReceiptBv }}</span>
-              </div>
-            </div>
-          </div>
-          <div v-if="loading" class="q-mt-md flex flex-center">
-            <q-spinner-hourglass color="light-green" size="50px" />
-          </div>
-
-          <!-- Submit Button -->
           <q-btn
             :label="$t('submitSale')"
-            color="light-green-14"
-            class="full-width q-mt-md"
+            icon="check_circle"
+            color="blue-grey-9"
+            text-color="white"
+            class="sales-action-btn sales-submit-btn full-width rounded-xl bg-blue-grey-9 font-bold text-white shadow-lg"
             type="submit"
             :loading="loading"
           />
         </q-form>
       </CurrencyToggle>
-    </q-card>
+    </div>
   </q-page>
 </template>
 
 <script setup>
+// Vue and application dependencies for the sales entry flow.
 import { ref, reactive, onMounted, watch, computed, watchEffect } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -327,13 +366,20 @@ import { useQuasar } from 'quasar'
 import { supabase } from '../boot/supabase'
 import { useAuth } from '../stores/auth.js'
 import CurrencyToggle from '../components/currencyTogle.vue'
+// Session, sale form, product selection, and validation state.
 const auth = useAuth()
 const $q = useQuasar()
+const notifySales = (options) => {
+  const classes = [options.classes, 'sales-notification'].filter(Boolean).join(' ')
+  $q.notify({ ...options, classes })
+}
 const store = useSalesStore()
 const { t: $t, locale } = useI18n()
 //const userStore = useAuth()
 const loading = ref(false)
 const availableQuantity = ref(0)
+const stockLoading = ref(false)
+let stockRequestId = 0
 import { toRaw } from 'vue'
 const searchQuery = ref('') // Search query for filtering
 const distributors = ref([])
@@ -342,6 +388,13 @@ const shopName = ref('')
 const DistributorIDNO = ref('')
 const distributorError = ref('')
 const receiptInput = ref(null)
+const receiptCheckStatus = ref('idle')
+let receiptCheckPromise = null
+let receiptCheckRequestId = 0
+let verifiedReceiptNo = ''
+const distributorCheckStatus = ref('idle')
+let distributorCheckRequestId = 0
+let verifiedDistributorId = ''
 const confirmedDistributor = ref(false)
 const dpcOptions = ref([])
 const salesDateError = ref('') // For date validation
@@ -362,6 +415,8 @@ const form = reactive({
 const selectedProductCode = ref(null)
 //const selectedQuantity = ref(1)
 const selectedProduct = ref(null)
+const productSearch = ref('')
+const showProductOptions = ref(false)
 
 const selectedQuantity = ref(1)
 const unitPrice = ref(0)
@@ -385,6 +440,7 @@ const firstDay = formatDate(new Date(year, month, 1))
 const lastDay = formatDate(new Date(year, month + 1, 0))
 
 // Role-based restriction
+// Derived role permissions, date limits, and sale totals.
 const userRole = computed(() => auth.userDetails?.role || 'User')
 
 const dateMin = computed(() => {
@@ -399,6 +455,7 @@ const dateMax = computed(() => {
     : lastDay
 })
 
+// Cart operations and stock lookup for selected products.
 const removeItem = (index) => {
   form.items.splice(index, 1)
 }
@@ -437,44 +494,58 @@ const totalBV = computed(() => {
   if (!unitBV.value || !selectedQuantity.value) return ''
   return unitBV.value * selectedQuantity.value
 })
-const exchangeRate = computed(() => store.headerData.exchangeRate)
-const filteredProducts = ref([])
+const productOptions = computed(() => {
+  const needle = productSearch.value.trim().toLowerCase()
+  return store.products.filter((product) =>
+    String(product.productname || '')
+      .toLowerCase()
+      .includes(needle),
+  )
+})
 
-// Initially load all products as options
-filteredProducts.value = store.products.map((p) => ({
-  label: p.productname,
-  value: p.productcode,
-}))
+const handleProductSearch = () => {
+  showProductOptions.value = true
 
-// Filter products when typing
-function filterProducts(val, update) {
-  if (val === '') {
-    update(() => {
-      filteredProducts.value = store.products.map((p) => ({
-        label: p.productname,
-        value: p.productcode,
-      }))
-    })
-    return
+  if (selectedProduct.value && productSearch.value !== selectedProduct.value.productname) {
+    selectedProductCode.value = null
+    selectedProduct.value = null
+    availableQuantity.value = 0
+    unitPrice.value = 0
+    unitBV.value = 0
+    selectedQuantity.value = 1
   }
+}
 
-  update(() => {
-    const needle = val.toLowerCase()
-    filteredProducts.value = store.products
-      .filter((p) => p.productname.toLowerCase().includes(needle))
-      .map((p) => ({ label: p.productname, value: p.productcode }))
-  })
+const chooseProduct = async (product) => {
+  productSearch.value = product.productname
+  selectedProductCode.value = product.productcode
+  showProductOptions.value = false
+  await updateSelectedProduct(product.productcode)
+}
+
+const clearProductSelection = () => {
+  stockRequestId += 1
+  stockLoading.value = false
+  productSearch.value = ''
+  selectedProductCode.value = null
+  selectedProduct.value = null
+  availableQuantity.value = 0
+  unitPrice.value = 0
+  unitBV.value = 0
+  selectedQuantity.value = 1
+  showProductOptions.value = true
 }
 //watch that quantity never goes below 1
+// Keep quantity changes within the available stock.
 watch(selectedQuantity, (val) => {
   if (val < 1) selectedQuantity.value = 1
 })
 
 watch(selectedQuantity, (newQty) => {
   if (selectedProduct.value && availableQuantity.value > 0 && newQty > availableQuantity.value) {
-    $q.notify({
+    notifySales({
       type: 'negative',
-      message: 'Quantity entered exceeds available stock.',
+      message: $t('quantityExceedsStock'),
       position: 'center',
       icon: 'warning',
     })
@@ -482,6 +553,7 @@ watch(selectedQuantity, (newQty) => {
 })
 
 async function updateSelectedProduct(code) {
+  const requestId = ++stockRequestId
   selectedProduct.value = store.products.find((p) => p.productcode === code)
 
   if (selectedProduct.value) {
@@ -491,20 +563,33 @@ async function updateSelectedProduct(code) {
 
     if (form.dpccode) {
       const fromTable = `${form.dpccode}_STOCK`
+      stockLoading.value = true
 
-      const { data, error } = await supabase
-        .from(fromTable)
-        .select('quantity')
-        .eq('productcode', code)
-        .maybeSingle()
+      try {
+        const { data, error } = await supabase
+          .from(fromTable)
+          .select('quantity')
+          .eq('productcode', code)
+          .maybeSingle()
 
-      if (error) {
-        console.error('Error fetching stock:', error.message)
-        availableQuantity.value = 0
-      } else {
-        availableQuantity.value = data ? data.quantity : 0
+        if (requestId !== stockRequestId) return
+
+        if (error) {
+          console.error('Error fetching stock:', error.message)
+          availableQuantity.value = 0
+        } else {
+          availableQuantity.value = data ? data.quantity : 0
+        }
+      } catch (error) {
+        if (requestId === stockRequestId) {
+          console.error('Unexpected error fetching stock:', error)
+          availableQuantity.value = 0
+        }
+      } finally {
+        if (requestId === stockRequestId) stockLoading.value = false
       }
     } else {
+      stockLoading.value = false
       availableQuantity.value = 0
     }
   }
@@ -524,13 +609,11 @@ const disableAddButton = computed(() => {
   return false
 })
 
-import { Notify } from 'quasar'
-
 function updateTotals() {
   if (selectedProduct.value) {
     // 🚨 Check if quantity entered exceeds available stock
     if (selectedQuantity.value > availableQuantity.value) {
-      Notify.create({
+      notifySales({
         type: 'negative',
         message: $t('dispatchLimitError'),
         position: 'center',
@@ -563,6 +646,8 @@ function updateTotals() {
 function addProduct() {
   if (!selectedProduct.value || selectedQuantity.value <= 0) return
 
+  stockRequestId += 1
+  stockLoading.value = false
   form.items.push({
     productname: selectedProduct.value.productname,
     productcode: selectedProduct.value.productcode,
@@ -571,12 +656,14 @@ function addProduct() {
     quantity: selectedQuantity.value,
   })
 
-  // Reset select and input fields
-  selectedProductCode.value = null // Reset q-select to "Select Product"
-  selectedProduct.value = null // Clear selected product data
-  selectedQuantity.value = 1 // Reset quantity
-  unitPrice.value = null // This clears totalPrice because it's reactive
-  unitBV.value = null // This clears totalBV
+  selectedProductCode.value = null
+  selectedProduct.value = null
+  productSearch.value = ''
+  showProductOptions.value = false
+  availableQuantity.value = 0
+  selectedQuantity.value = 1
+  unitPrice.value = 0
+  unitBV.value = 0
 }
 
 // ----------------------------
@@ -596,45 +683,82 @@ const fetchDistributors = async (query) => {
   }
 }
 
+const resetDistributorCheckStatus = () => {
+  distributorCheckRequestId += 1
+  verifiedDistributorId = ''
+  distributorCheckStatus.value = 'idle'
+}
+
 const validateDistributorIDNO = async () => {
-  const id = form.distributoridno.trim()
-  if (!id) return
+  const id = String(form.distributoridno || '').trim().toUpperCase()
+  if (!id) {
+    resetDistributorCheckStatus()
+    return
+  }
+  if (distributorCheckStatus.value === 'valid' && verifiedDistributorId === id) return
 
-  const { data, error } = await supabase
-    .from('Distributors')
-    .select('DistributorNames')
-    .ilike('DistributorIDNO', id) // case-insensitive
-    .single()
+  const requestId = ++distributorCheckRequestId
+  form.distributoridno = id
 
-  if (error || !data) {
-    console.log('Error:', error)
-    console.log('Data:', data)
+  try {
+    const { data, error } = await supabase
+      .from('Distributors')
+      .select('DistributorNames')
+      .ilike('DistributorIDNO', id)
+      .maybeSingle()
 
-    $q.notify({
-      type: 'negative',
-      message: $t('distributorNotFound'),
-      position: 'center', // 👈 show notification in center
-      timeout: 2500, // optional: how long it stays
-      classes: 'text-center text-h6', // optional: make it easy to read
-    })
+    if (requestId !== distributorCheckRequestId) return
 
-    form.distributoridno = ''
-    searchQuery.value = ''
-    confirmedDistributor.value = false
-  } else {
+    if (error || !data) {
+      if (error) console.error('Distributor ID lookup failed:', error)
+      notifySales({
+        type: 'negative',
+        message: error ? $t('distributorLookupFailed') : $t('distributorNotFound'),
+        position: 'center',
+        timeout: 2500,
+        classes: 'text-center text-h6',
+      })
+
+      form.distributoridno = ''
+      searchQuery.value = ''
+      confirmedDistributor.value = false
+      distributorError.value = ''
+      resetDistributorCheckStatus()
+      return
+    }
+
     distributorError.value = ''
     searchQuery.value = data.DistributorNames
     confirmedDistributor.value = true
+    verifiedDistributorId = id
+    distributorCheckStatus.value = 'valid'
+  } catch (error) {
+    if (requestId !== distributorCheckRequestId) return
+    console.error('Distributor ID lookup failed:', error)
+    notifySales({
+      type: 'negative',
+      message: $t('distributorLookupFailed'),
+      position: 'center',
+      timeout: 2500,
+    })
+    form.distributoridno = ''
+    searchQuery.value = ''
+    confirmedDistributor.value = false
+    distributorError.value = ''
+    resetDistributorCheckStatus()
   }
 }
 
 // Select a distributor from the list
 const selectDistributor = (distributor) => {
+  resetDistributorCheckStatus()
   searchQuery.value = distributor.DistributorNames
   DistributorIDNO.value = distributor.DistributorIDNO
 
   // ✅ Sync to store
   form.distributoridno = distributor.DistributorIDNO
+  verifiedDistributorId = String(distributor.DistributorIDNO).trim().toUpperCase()
+  distributorCheckStatus.value = 'valid'
 
   // ✅ Hide suggestions
   confirmedDistributor.value = true
@@ -695,121 +819,169 @@ watch(searchQuery, (newVal) => {
   }
 })
 
+watch(
+  () => form.dpccode,
+  (dpccode) => {
+    receiptCheckRequestId += 1
+    receiptCheckPromise = null
+    verifiedReceiptNo = ''
+    receiptCheckStatus.value = 'idle'
+    form.receiptno = dpccode ? String(dpccode).trim().toUpperCase() : ''
+  },
+)
+
 // ----------------------------
 // Product Select + Add to Cart
 // ----------------------------
 
-const validateReceiptNo = async () => {
-  // Step 1: ensure sales date
-  if (!form.salesdate) {
-    salesDateError.value = $t('selectSalesDate')
-    form.receiptno = ''
-    return
-  } else {
+const resetReceiptCheckStatus = () => {
+  receiptCheckRequestId += 1
+  receiptCheckPromise = null
+  verifiedReceiptNo = ''
+  receiptCheckStatus.value = 'idle'
+}
+
+const handleReceiptBlur = async (event) => {
+  const nextTarget = event.relatedTarget
+  const validation = validateReceiptNo()
+  if (receiptCheckStatus.value !== 'checking') return
+
+  receiptInput.value?.focus()
+  await validation
+  if (nextTarget?.isConnected && typeof nextTarget.focus === 'function') {
+    nextTarget.focus()
+  }
+}
+
+const validateReceiptNo = () => {
+  if (receiptCheckPromise) return receiptCheckPromise
+
+  const requestId = ++receiptCheckRequestId
+  const check = async () => {
+    const prefix = String(form.dpccode || '')
+      .trim()
+      .toUpperCase()
+    const resetReceiptNo = () => {
+      form.receiptno = prefix
+      verifiedReceiptNo = ''
+      receiptCheckStatus.value = 'idle'
+    }
+
+    if (!form.salesdate) {
+      salesDateError.value = $t('selectSalesDate')
+      resetReceiptNo()
+      return false
+    }
     salesDateError.value = ''
-  }
 
-  // Step 2: prepare receipt (trim + prefix)
-  let receipt = form.receiptno?.trim()
-  if (!receipt) return
-
-  if (form.dpccode) {
-    receipt = `${form.dpccode}${receipt}`
-  }
-
-  // Step 3: validate allowed chars
-  const isValid = /^[a-zA-Z0-9_-]+$/.test(receipt)
-  if (!isValid) {
-    $q.notify({
-      type: 'negative',
-      message: $t('receiptInvalidChars'),
-      position: 'center',
-      timeout: 2000,
-      classes: 'text-center text-h6',
-    })
-    form.receiptno = ''
-    return
-  }
-
-  try {
-    // Step 4: Query both tables in parallel
-    const [salesResp, usedResp] = await Promise.all([
-      // salesheader often uses lowercase column names; if your column is 'receiptno' lowercase this will work
-      supabase
-        .from('salesheader')
-        .select('distributoridno, datecreated')
-        .ilike('receiptno', receipt) // case-insensitive; change if needed
-        .maybeSingle(),
-
-      // UsedCsi has quoted mixed-case column names -> use exact quoted column name
-      supabase
-        .from('UsedCsi')
-        .select('"ReceiptNo", "DistributorIDNO", "SalesDate"')
-        // use .eq for exact match (case-sensitive). If you want case-insensitive use .ilike('"ReceiptNo"', receipt)
-        .eq('"ReceiptNo"', receipt)
-        .maybeSingle(),
-    ])
-
-    // Check Supabase errors for debugging
-    if (salesResp.error) {
-      console.error('salesheader query error', salesResp.error)
-      // optional: notify
-      $q.notify({ type: 'negative', message: $t('queryError'), timeout: 3000 })
+    let receipt = String(form.receiptno || '')
+      .trim()
+      .toUpperCase()
+    if (!receipt || receipt === prefix) return false
+    if (prefix && !receipt.startsWith(prefix)) receipt = `${prefix}${receipt}`
+    while (prefix && receipt.startsWith(`${prefix}${prefix}`)) {
+      receipt = receipt.slice(prefix.length)
     }
-    if (usedResp.error) {
-      console.error('UsedCsi query error', usedResp.error)
-      $q.notify({ type: 'negative', message: $t('queryError'), timeout: 3000 })
+    if (receiptCheckStatus.value === 'valid' && verifiedReceiptNo === receipt) return true
+
+    if (!/^[a-zA-Z0-9_-]+$/.test(receipt)) {
+      notifySales({
+        type: 'negative',
+        message: $t('receiptInvalidChars'),
+        position: 'center',
+        timeout: 2000,
+        classes: 'text-center text-h6',
+      })
+      resetReceiptNo()
+      return false
     }
 
-    const salesMatch = salesResp.data
-    const usedMatch = usedResp.data
+    form.receiptno = receipt
+    receiptCheckStatus.value = 'checking'
 
-    // If either table has a match -> reject
-    if (salesMatch || usedMatch) {
-      // Prefer info from salesheader if available
-      let distributoridno = salesMatch?.distributoridno || usedMatch?.DistributorIDNO || null
-      let datecreated = salesMatch?.datecreated || usedMatch?.SalesDate || null
+    try {
+      const [salesResp, usedResp] = await Promise.all([
+        supabase
+          .from('salesheader')
+          .select('distributoridno, datecreated')
+          .ilike('receiptno', receipt)
+          .maybeSingle(),
+        supabase
+          .from('UsedCsi')
+          .select('"ReceiptNo", "DistributorIDNO", "SalesDate"')
+          .eq('"ReceiptNo"', receipt)
+          .maybeSingle(),
+      ])
 
-      // Get distributor name if we have an ID
-      let distName = 'Unknown'
-      if (distributoridno) {
-        const { data: distributor, error: distErr } = await supabase
-          .from('Distributors')
-          .select('"DistributorNames"')
-          .ilike('"DistributorIDNO"', distributoridno.trim()) // case-insensitive exact match
-          .maybeSingle()
+      if (requestId !== receiptCheckRequestId) return false
 
-        if (distErr) console.error('Distributors query error', distErr)
-
-        distName = distributor?.DistributorNames || 'Unknown'
+      if (salesResp.error || usedResp.error) {
+        console.error('Receipt lookup failed:', salesResp.error || usedResp.error)
+        notifySales({ type: 'negative', message: $t('receiptLookupFailed'), timeout: 3000 })
+        resetReceiptNo()
+        return false
       }
 
-      const formattedDate = datecreated
-        ? new Date(datecreated).toLocaleDateString(locale.value === 'fr' ? 'fr-FR' : 'en-US')
-        : $t('previouslyUsed')
+      const salesMatch = salesResp.data
+      const usedMatch = usedResp.data
 
-      $q.notify({
-        type: 'negative',
-        message: $t('noExists', {
-          date: formattedDate,
-          client: distName,
-          distributorid: distributoridno || receipt,
-        }),
-        timeout: 6500,
-        position: 'center',
-      })
+      if (salesMatch || usedMatch) {
+        const distributoridno =
+          salesMatch?.distributoridno || usedMatch?.DistributorIDNO || null
+        const datecreated = salesMatch?.datecreated || usedMatch?.SalesDate || null
 
-      form.receiptno = ''
-      return
+        let distName = 'Unknown'
+        if (distributoridno) {
+          const { data: distributor, error: distErr } = await supabase
+            .from('Distributors')
+            .select('"DistributorNames"')
+            .ilike('"DistributorIDNO"', distributoridno.trim())
+            .maybeSingle()
+
+          if (distErr) console.error('Distributors query error', distErr)
+
+          distName = distributor?.DistributorNames || 'Unknown'
+        }
+
+        const formattedDate = datecreated
+          ? new Date(datecreated).toLocaleDateString(locale.value === 'fr' ? 'fr-FR' : 'en-US')
+          : $t('receiptPreviouslyUsed')
+
+        notifySales({
+          type: 'negative',
+          message: $t('noExists', {
+            date: formattedDate,
+            client: distName,
+            distributorid: distributoridno || receipt,
+          }),
+          timeout: 6500,
+          position: 'center',
+        })
+
+        resetReceiptNo()
+        return false
+      }
+
+      form.receiptno = receipt
+      verifiedReceiptNo = receipt
+      receiptCheckStatus.value = 'valid'
+      return true
+    } catch (err) {
+      if (requestId !== receiptCheckRequestId) return false
+      console.error('validateReceiptNo error', err)
+      notifySales({ type: 'negative', message: $t('unexpectedError'), timeout: 3000 })
+      resetReceiptNo()
+      return false
     }
-
-    // If not found anywhere — accept it
-    form.receiptno = receipt
-  } catch (err) {
-    console.error('validateReceiptNo error', err)
-    $q.notify({ type: 'negative', message: $t('unexpectedError'), timeout: 3000 })
-    form.receiptno = ''
   }
+
+  receiptCheckPromise = check().finally(() => {
+    if (requestId === receiptCheckRequestId) {
+      if (receiptCheckStatus.value === 'checking') receiptCheckStatus.value = 'idle'
+      receiptCheckPromise = null
+    }
+  })
+  return receiptCheckPromise
 }
 
 const submitSale = async () => {
@@ -819,8 +991,15 @@ const submitSale = async () => {
 
   try {
     // 1️⃣ Basic header validation
-    if (!form.receiptno || !form.salesdate || !form.distributoridno) {
-      $q.notify({
+    const receiptPrefix = String(form.dpccode || '').trim().toUpperCase()
+    const receiptValue = String(form.receiptno || '').trim().toUpperCase()
+    if (
+      !form.salesdate ||
+      !form.distributoridno ||
+      !receiptValue ||
+      receiptValue === receiptPrefix
+    ) {
+      notifySales({
         type: 'negative',
         message: $t('fillRequiredHeader'),
         position: 'center',
@@ -830,7 +1009,7 @@ const submitSale = async () => {
 
     // 2️⃣ At least one product
     if (!form.items || form.items.length === 0) {
-      $q.notify({
+      notifySales({
         type: 'negative',
         message: $t('addAtLeastOneProduct'),
         position: 'center',
@@ -838,10 +1017,7 @@ const submitSale = async () => {
       return
     }
 
-    // 3️⃣ Add DPC prefix to receipt if missing
-    if (form.dpccode && !form.receiptno.startsWith(form.dpccode)) {
-      form.receiptno = `${form.dpccode}${form.receiptno}`
-    }
+    if (!(await validateReceiptNo())) return
 
     // 4️⃣ Clean deep clone (required)
     const payload = JSON.parse(JSON.stringify(toRaw(form)))
@@ -851,7 +1027,7 @@ const submitSale = async () => {
     if (!result.success) throw result.error
 
     // 6️⃣ Success message
-    $q.notify({
+    notifySales({
       type: 'positive',
       message: $t('saleSubmitted'),
       position: 'center',
@@ -860,9 +1036,10 @@ const submitSale = async () => {
     // 7️⃣ Reset form
     resetForm()
   } catch (err) {
-    $q.notify({
+    console.error('Error submitting sale:', err)
+    notifySales({
       type: 'negative',
-      message: `${$t('error')}: ${err.message || err}`,
+      message: $t('saleSubmitFailed'),
       position: 'center',
     })
   } finally {
@@ -872,11 +1049,13 @@ const submitSale = async () => {
 
 function resetForm() {
   const currentRate = form.exchangeRate
-  const today = new Date()
+  const selectedDpc = form.dpccode
+  const selectedSalesDate = form.salesdate
 
   Object.assign(form, {
-    receiptno: '',
-    salesdate: today.toISOString().slice(0, 10),
+    dpccode: selectedDpc,
+    receiptno: selectedDpc ? String(selectedDpc).trim().toUpperCase() : '',
+    salesdate: selectedSalesDate,
     distributoridno: '',
     createdby: auth.userDetails.firstname,
     lastModifiedby: auth.userDetails.firstname,
@@ -886,6 +1065,7 @@ function resetForm() {
     exchangeRate: currentRate,
   })
 
+  resetReceiptCheckStatus()
   searchQuery.value = ''
 }
 
@@ -936,16 +1116,16 @@ onMounted(async () => {
       }))
 
       // ✅ Preselect user's own DPC if it exists
-      form.dpccode = userDpc
+      if (!form.dpccode) form.dpccode = userDpc
     } else if (role === 'User') {
       // ✅ User cannot change DPC
-      form.dpccode = userDpc
+      if (!form.dpccode) form.dpccode = userDpc
     }
   } catch (err) {
     console.error('Error loading DPCs:', err.message)
-    $q.notify({
+    notifySales({
       type: 'negative',
-      message: 'Failed to load DPC list: ' + err.message,
+      message: $t('dpcLoadFailed'),
     })
   }
 })
@@ -955,7 +1135,7 @@ const isAdmin = computed(() => ['Admin', 'SuperAdmin'].includes(auth.userDetails
 watch(
   () => auth.userDetails,
   (newVal) => {
-    if (newVal) {
+    if (newVal && !form.dpccode) {
       form.dpccode = newVal.dpc_id
     }
   },
@@ -964,6 +1144,12 @@ watch(
 </script>
 
 <style scoped>
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 .rounded-borders {
   border-radius: 0.5rem;
 }
@@ -1166,5 +1352,683 @@ watch(
 
   border-radius: 10px;
   text-align: center;
+}
+
+.sales-page {
+  width: 100%;
+}
+
+.sales-details-section {
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 1rem;
+}
+
+.sales-section-icon {
+  display: flex;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+}
+
+.sales-label {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: #334155;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.125rem;
+}
+
+.sales-action-btn {
+  min-height: 2.875rem;
+}
+
+.sales-submit-btn {
+  margin-top: 0;
+}
+
+.sales-cart-list {
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  background: #fff;
+  padding: 0;
+  box-shadow: 0 4px 12px rgb(15 23 42 / 5%);
+}
+
+.sales-product-section,
+.sales-cart-section {
+  min-width: 0;
+  padding: 0.25rem 0;
+}
+
+.sales-cart-item {
+  min-height: 0;
+  background: #fff;
+  transition:
+    background-color 150ms ease,
+    transform 150ms ease;
+}
+
+.sales-cart-item:not(:last-child) {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.sales-cart-item:hover {
+  background: #f8fafc;
+}
+
+.sales-cart-item:nth-child(odd) {
+  background: #f1f5f9;
+}
+
+.sales-cart-item:nth-child(odd):hover {
+  background: #e2e8f0;
+}
+
+.sales-cart-product-name {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  color: #0f172a;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+  line-clamp: 2;
+  text-align: center;
+  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.sales-cart-product-details {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem 0.75rem;
+  margin-top: 0.4rem;
+  color: #475569;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  text-align: center;
+}
+
+.sales-cart-actions {
+  min-width: 2.5rem;
+  padding-left: 0.375rem;
+}
+
+.sales-cart-totals {
+  margin-top: 0.5rem;
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 1rem;
+  background: linear-gradient(110deg, #1e293b, #334155);
+  padding: 0.75rem 1rem;
+  color: #fff;
+}
+
+.sales-cart-total-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+  color: #cbd5e1;
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.sales-cart-total-heading .q-icon {
+  color: #a5d6a7;
+}
+
+.sales-cart-total-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.25rem 0;
+  color: #cbd5e1;
+  font-size: 0.8125rem;
+}
+
+.sales-cart-total-row strong {
+  color: #fff;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.sales-cart-total-bv {
+  margin-top: 0.25rem;
+  border-top: 1px solid rgb(255 255 255 / 15%);
+  padding-top: 0.5rem;
+}
+
+.sales-cart-total-bv strong {
+  color: #fcd34d;
+}
+
+.select-leading-icon {
+  position: absolute;
+  top: 50%;
+  left: 0.875rem;
+  z-index: 1;
+  color: #64748b;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.native-select:focus-visible {
+  border-color: #2563eb;
+  outline: none;
+  box-shadow: 0 0 0 4px rgb(37 99 235 / 14%);
+}
+
+.sales-form :deep(.q-field--outlined .q-field__control) {
+  border-radius: 0.75rem;
+  background: #fff;
+}
+
+.sales-form :deep(.q-field--outlined .q-field__control::before) {
+  border-color: #cbd5e1;
+}
+
+.sales-form :deep(.q-field--outlined:hover .q-field__control::before) {
+  border-color: #94a3b8;
+}
+
+.sales-form :deep(.q-field--filled .q-field__control) {
+  border-radius: 0.75rem;
+  background: #f8fafc;
+}
+
+.sales-form :deep(.q-field--filled .q-field__control::before) {
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.sales-form :deep(.q-field__native),
+.sales-form :deep(.q-field__input) {
+  color: #111827;
+  font-size: 1rem;
+}
+
+.native-select {
+  height: 44px;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background-color: #fff;
+  color: #1e293b;
+}
+
+.custom-list {
+  border-color: #e2e8f0 !important;
+  background: #fff !important;
+}
+
+.custom-item-separator:not(:last-child) {
+  border-bottom-color: #e2e8f0 !important;
+}
+
+:global(.sales-notification) {
+  max-width: min(92vw, 32rem);
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 0.875rem;
+  box-shadow: 0 12px 32px rgb(15 23 42 / 24%);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+:global(.sales-notification .q-notification__message) {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.sales-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sales-details-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.sales-quantity-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.625rem;
+}
+
+.sales-field {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.sales-field-error {
+  grid-column: 1 / -1;
+}
+
+.sales-products {
+  min-width: 0;
+}
+
+.sales-form :deep(.q-field__native),
+.sales-form :deep(.q-field__input) {
+  color: #111827 !important;
+  font-size: 0.9375rem;
+  font-weight: 500;
+}
+
+.sales-form :deep(.q-field__control) {
+  transition:
+    box-shadow 150ms ease,
+    background-color 150ms ease;
+}
+
+.sales-form :deep(.q-field--outlined.q-field--focused .q-field__control) {
+  background: #fff;
+  box-shadow: 0 0 0 4px rgb(37 99 235 / 14%);
+}
+
+.sales-form :deep(.q-field--outlined.q-field--focused .q-field__control::before) {
+  border: 2px solid #2563eb !important;
+}
+
+.sales-form :deep(.q-field--filled.q-field--focused .q-field__control) {
+  background: #fff;
+  box-shadow: 0 0 0 4px rgb(37 99 235 / 14%);
+}
+
+.sales-form :deep(.q-field--filled.q-field--focused .q-field__control::before) {
+  border-bottom: 2px solid #2563eb !important;
+}
+
+.sales-form :deep(.q-field__control) {
+  min-height: 46px;
+  border-radius: 0.75rem;
+}
+
+.sales-form :deep(.q-field--dense .q-field__control),
+.sales-form :deep(.q-field--dense .q-field__marginal) {
+  height: 46px;
+}
+
+.sales-form :deep(.q-field--outlined .q-field__control::before) {
+  border-color: #cbd5e1;
+}
+
+.sales-form :deep(.q-field--outlined:hover .q-field__control::before) {
+  border-color: #64748b;
+}
+
+.sales-form :deep(.q-field--outlined.q-field--focused .q-field__control::before) {
+  border: 2px solid #475569;
+}
+
+.sales-form :deep(.q-field--filled .q-field__control) {
+  background: #fff;
+}
+
+.sales-form :deep(.q-field--filled .q-field__control::before) {
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.native-select {
+  height: 46px;
+  border-color: #cbd5e1;
+  border-radius: 0.875rem;
+  color: #111827;
+  font-size: 1rem;
+  background-image: url("data:image/svg+xml;utf8,<svg fill='%23475569' height='16' viewBox='0 0 24 24' width='16' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>");
+}
+
+.sales-suggestion-list {
+  position: relative;
+  grid-column: 1 / -1;
+  width: 100%;
+  margin: -0.5rem 0 0;
+}
+
+.custom-list {
+  border-color: #cbd5e1 !important;
+}
+
+.custom-item-separator:not(:last-child) {
+  border-bottom-color: #e2e8f0 !important;
+}
+
+@media (min-width: 768px) {
+  .sales-quantity-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 480px) and (max-width: 767px) {
+  .sales-quantity-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.sales-page,
+.sales-card,
+.sales-form,
+.sales-field,
+.sales-details-section,
+.sales-details-grid,
+.sales-product-section,
+.sales-cart-section,
+.sales-quantity-grid {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.sales-page {
+  width: 100%;
+  padding-right: max(clamp(0.75rem, 4vw, 1.5rem), env(safe-area-inset-right, 0px));
+  padding-left: max(clamp(0.75rem, 4vw, 1.5rem), env(safe-area-inset-left, 0px));
+  overflow-x: hidden;
+}
+
+.sales-card,
+.sales-form,
+.sales-field,
+.sales-product-picker {
+  width: 100%;
+}
+
+.sales-native-input,
+.sales-readonly-value,
+.sales-select,
+.sales-action-btn {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.sales-stock-indicator {
+  display: flex;
+  width: 100%;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.625rem 0 0.875rem;
+  border: 1px solid #86efac;
+  border-radius: 0.875rem;
+  background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+  padding: 0.625rem 0.875rem;
+  color: #166534;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  box-shadow: 0 2px 5px rgb(22 101 52 / 8%);
+}
+
+.sales-stock-indicator strong {
+  color: #14532d;
+  font-size: 1.125rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.sales-cart-item > :deep(.q-item__section--main) {
+  min-width: 0;
+}
+
+.sales-cart-item :deep(.q-item__label) {
+  overflow-wrap: anywhere;
+}
+
+.sales-action-btn {
+  width: 100%;
+  max-width: 100%;
+}
+
+@media (min-width: 360px) {
+  .sales-quantity-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 349px) {
+  .sales-details-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sales-quantity-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sales-cart-item {
+    padding-right: 0.5rem;
+    padding-left: 0.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sales-native-input,
+  .sales-cart-item {
+    transition: none;
+  }
+}
+
+.sales-native-input,
+.sales-readonly-value {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 2.625rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  background-color: #fff;
+  padding: 0.5rem 0.625rem;
+  color: #111827;
+  font: inherit;
+  font-size: 0.875rem;
+  line-height: 1.125rem;
+  transition:
+    border-color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.receipt-input-wrap {
+  position: relative;
+}
+
+.receipt-number-input {
+  padding-right: 2.75rem;
+}
+
+.receipt-check-status {
+  position: absolute;
+  top: 50%;
+  right: 0.875rem;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.sales-readonly-value {
+  display: flex;
+  align-items: center;
+  background-color: #f1f5f9;
+  color: #334155;
+  font-weight: 600;
+}
+
+.sales-native-input:focus-visible {
+  border-color: #2563eb;
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 18%);
+}
+
+.sales-native-input:disabled {
+  cursor: not-allowed;
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+
+.sales-select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 2.625rem;
+  appearance: none;
+  border: 1px solid #455a64;
+  border-radius: 0.75rem;
+  background-color: #37474f;
+  background-image: url("data:image/svg+xml;utf8,<svg fill='white' height='18' viewBox='0 0 24 24' width='18' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>");
+  background-position: right 0.75rem center;
+  background-repeat: no-repeat;
+  padding: 0.5rem 2.25rem 0.5rem 0.625rem;
+  color: #fff;
+  font-size: 0.875rem;
+}
+
+.sales-select option {
+  background-color: #37474f;
+  color: #fff;
+}
+
+.sales-select:focus-visible {
+  border-color: #93c5fd;
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 24%);
+}
+
+.sales-action-btn {
+  box-sizing: border-box;
+  min-height: 2.625rem;
+  background: #37474f !important;
+  color: #fff !important;
+}
+
+.sales-action-btn :deep(.q-btn__content) {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 0.875rem;
+}
+
+.sales-action-btn:hover {
+  background: #263238 !important;
+}
+
+.sales-cart-item {
+  align-items: center;
+  border-color: #e2e8f0;
+  background: linear-gradient(135deg, #fff, #f8fafc);
+}
+
+.sales-product-picker {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.sales-product-search {
+  min-height: 2.75rem;
+  padding-right: 2.75rem;
+  padding-left: 2.5rem;
+  border-color: #455a64;
+  background: #37474f;
+  color: #fff;
+}
+
+.sales-product-search::placeholder {
+  color: #cbd5e1;
+  opacity: 1;
+}
+
+.sales-product-search:focus-visible {
+  border-color: #90a4ae;
+  box-shadow: 0 0 0 3px rgb(55 71 79 / 24%);
+}
+
+.sales-product-search-icon {
+  position: absolute;
+  top: 50%;
+  left: 0.75rem;
+  z-index: 1;
+  color: #cbd5e1;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.sales-product-clear {
+  position: absolute;
+  top: 50%;
+  right: 0.5rem;
+  display: flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 9999px;
+  background: transparent;
+  color: #cbd5e1;
+  transform: translateY(-50%);
+}
+
+.sales-product-clear:hover,
+.sales-product-clear:focus-visible {
+  background: #455a64;
+  color: #fff;
+  outline: none;
+}
+
+.sales-product-options {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  left: 0;
+  z-index: 20;
+  max-height: min(42vh, 18rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #455a64;
+  border-radius: 0.75rem;
+  background: #37474f;
+  padding: 0.25rem;
+  color: #fff;
+  box-shadow: 0 12px 24px rgb(15 23 42 / 24%);
+  list-style: none;
+}
+
+.sales-product-option {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  padding: 0.5rem 0.625rem;
+  color: #fff;
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+.sales-product-option:hover,
+.sales-product-option:focus-visible,
+.sales-product-option[aria-selected='true'] {
+  background: #455a64;
+  outline: none;
+}
+
+.sales-product-empty {
+  padding: 0.75rem;
+  color: #e2e8f0;
+  font-size: 0.875rem;
 }
 </style>

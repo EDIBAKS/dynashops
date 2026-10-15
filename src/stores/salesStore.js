@@ -17,6 +17,7 @@ import { supabase } from '../boot/supabase'
 //}
 
 export const useSalesStore = defineStore('salesStore', {
+  // Sale draft data and catalog entries shared across sales components.
   state: () => ({
     products: [],
     salesItems: [],
@@ -29,6 +30,7 @@ export const useSalesStore = defineStore('salesStore', {
     },
   }),
 
+  // Load catalog data, update the draft, and submit completed sales.
   actions: {
     async fetchProducts() {
       const { data, error } = await supabase

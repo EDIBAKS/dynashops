@@ -44,10 +44,12 @@
 </template>
 
 <script setup>
+// Dependencies for querying sales records and creating Excel exports.
 import { ref } from 'vue'
 import ExcelJS from 'exceljs'
 import { supabase } from 'boot/supabase'
 
+// Date range, report selection, fetched rows, and table state.
 const startDate = ref('')
 const endDate = ref('')
 const reportType = ref('SalesHeader')

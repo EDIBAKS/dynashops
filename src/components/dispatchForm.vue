@@ -1,32 +1,37 @@
 <template>
-  <q-card flat bordered class="q-pa-md bg-transparent" style="max-width: 600px; margin: auto">
-    <q-form @submit.prevent="submitDispatch" class="column q-gutter-md">
-      <!-- Radio buttons: DPC, SHOPS, PROMO, EXPIRY, DEBTS -->
-      <div>
-        <b>LOGGED IN TO:</b> {{ isAdmin ? auth.userDetails.dpc_id : auth.userDetails?.dpc_id }}
+  <q-card
+    flat
+    bordered
+    class="rounded-2xl border border-slate-200 bg-white shadow-sm q-pa-md"
+    style="max-width: 900px; margin: auto"
+  >
+    <div class="row items-center justify-between q-mb-md text-blue-grey-9">
+      <div class="row items-center q-gutter-sm">
+        <q-icon name="local_shipping" size="22px" class="text-emerald-600" />
+        <div class="text-subtitle1 text-bold">New Dispatch</div>
       </div>
-      <div class="row items-center justify-center">
-        <q-option-group
-          v-model="dispatchType"
-          :options="filteredOptions"
-          inline
-          type="radio"
-          class="dispatch-type-group"
-        >
-          <template #label="opt">
-            <span
-              :class="['dispatch-option-label', opt.value === dispatchType ? 'active' : 'inactive']"
-            >
-              {{ opt.label }}
-            </span>
-          </template>
-        </q-option-group>
-      </div>
+      <q-chip dense square class="bg-slate-100 text-slate-700" icon="badge">
+        {{ auth.userDetails?.dpc_id || '—' }}
+      </q-chip>
+    </div>
 
-      <div class="row no-wrap items-stretch q-col-gutter-sm full-width">
+    <!-- Main dispatch entry form and validation controls -->
+    <q-form @submit.prevent="submitDispatch" class="column" style="gap: 20px">
+      <q-btn-toggle
+        v-model="dispatchType"
+        :options="filteredOptions"
+        unelevated
+        no-caps
+        spread
+        toggle-color="blue-grey-9"
+        color="grey-2"
+        text-color="blue-grey-9"
+        class="rounded-lg border border-slate-200"
+      />
+
+      <div class="row q-col-gutter-x-md" style="row-gap: 20px">
         <!-- FROM select -->
-
-        <div class="col">
+        <div class="col-12" :class="{ 'col-sm-6': !['PROMOS', 'EXPIRY', 'DEBTS'].includes(dispatchType) }">
           <!-- IF ADMIN OR SUPERADMIN -->
           <q-select
             v-if="isAdmin || isSuperAdmin"
@@ -37,9 +42,13 @@
             :label="fromLabelText"
             dense
             outlined
-            class="full-width"
+            options-dense
+            behavior="menu"
+            popup-content-class="rounded-lg"
             @update:model-value="populateSelects(true)"
-          />
+          >
+            <template #prepend><q-icon name="north_east" size="18px" /></template>
+          </q-select>
 
           <!-- IF NORMAL USER -->
           <q-input
@@ -53,7 +62,7 @@
           />
         </div>
         <!-- TO select (only show for DPC or SHOPS or DEBTS) -->
-        <div class="col" v-if="!['PROMOS', 'EXPIRY', 'DEBTS'].includes(dispatchType)">
+        <div class="col-12 col-sm-6" v-if="!['PROMOS', 'EXPIRY', 'DEBTS'].includes(dispatchType)">
           <q-select
             v-model="toValue"
             :options="toOptions"
@@ -62,34 +71,37 @@
             :label="toLabelText"
             dense
             outlined
-            class="full-width"
-          />
+            options-dense
+            behavior="menu"
+            popup-content-class="rounded-lg"
+          >
+            <template #prepend><q-icon name="south_west" size="18px" /></template>
+          </q-select>
         </div>
       </div>
-      <div class="row items-center justify-center q-col-gutter-sm full-width">
-        <!-- Dispatch Date -->
-        <q-input
-          v-model="dispatchDate"
-          type="date"
-          label="Dispatch Date"
-          dense
-          outlined
-          class="full-width"
-          @update:model-value="onDispatchDateChange"
-        />
 
-        <!-- Expiry Date -->
-        <q-input
-          v-model="expiryDate"
-          type="date"
-          label="Expiry Date"
-          dense
-          outlined
-          class="full-width"
-        />
+      <div class="row q-col-gutter-x-md" style="row-gap: 20px">
+        <div class="col-12 col-sm-6">
+          <q-input
+            v-model="dispatchDate"
+            type="date"
+            label="Dispatch Date"
+            dense
+            outlined
+            @update:model-value="onDispatchDateChange"
+          />
+        </div>
+        <div class="col-12 col-sm-6">
+          <q-input v-model="expiryDate" type="date" label="Expiry Date" dense outlined />
+        </div>
       </div>
-      <div v-if="dispatchType === 'PROMOS' || dispatchType === 'DEBTS'" class="q-pa-md">
-        <q-input v-model="distributoridno" label="Distributor ID" dense outlined />
+
+      <div
+        v-if="dispatchType === 'PROMOS' || dispatchType === 'DEBTS'"
+        class="column rounded-lg border border-slate-200 bg-slate-50 q-pa-md"
+        style="gap: 16px"
+      >
+        <q-input v-model="distributoridno" label="Distributor ID" dense outlined bg-color="white" />
         <DistributorSearch v-model="distributoridno" v-model:name="distributorname" />
       </div>
       <!-- FOR SHOP selection -->
@@ -106,47 +118,56 @@
        -->
 
       <!-- Product Select -->
-      <div class="q-pa-md">
-        <!-- Searchable Select -->
-        <q-select
-          v-model="selectedProduct"
-          :options="filteredProducts"
-          option-label="productname"
-          option-value="productcode"
-          label="Select Product"
-          use-input
-          input-debounce="300"
-          dense
-          outlined
-          @filter="filterProducts"
-        />
+      <q-select
+        v-model="selectedProduct"
+        :options="filteredProducts"
+        option-label="productname"
+        option-value="productcode"
+        label="Select Product"
+        use-input
+        input-debounce="300"
+        dense
+        outlined
+        options-dense
+        behavior="menu"
+        popup-content-class="rounded-lg"
+        @filter="filterProducts"
+      >
+        <template #prepend><q-icon name="inventory_2" size="18px" /></template>
+      </q-select>
+
+      <div class="row q-col-gutter-x-md" style="row-gap: 20px">
+        <div class="col-12 col-sm-6">
+          <q-input
+            v-model="availableStock"
+            label="Available Stock"
+            readonly
+            dense
+            outlined
+            bg-color="grey-2"
+            input-class="text-blue-grey-9 text-bold text-center"
+          />
+        </div>
+        <div class="col-12 col-sm-6">
+          <q-input
+            v-model.number="dispatchQty"
+            type="number"
+            min="1"
+            :max="availableStock"
+            label="Dispatch Quantity"
+            dense
+            outlined
+          />
+        </div>
       </div>
-
-      <!-- Available Stock -->
-      <q-input
-        v-model="availableStock"
-        label="Available Stock"
-        readonly
-        dense
-        outlined
-        input-class="text-blue text-bold text-center"
-      />
-
-      <!-- Dispatch Quantity -->
-      <q-input
-        v-model.number="dispatchQty"
-        type="number"
-        min="1"
-        :max="availableStock"
-        label="Dispatch Quantity"
-        dense
-        outlined
-      />
 
       <q-btn
         type="submit"
-        label="Submit"
-        color="primary"
+        label="Submit Dispatch"
+        icon="send"
+        unelevated
+        no-caps
+        class="bg-blue-grey-9 text-white rounded-lg full-width"
         :loading="loading"
         :disable="
           loading /* ⛔ prevent double submit */ ||
@@ -156,102 +177,23 @@
           dispatchQty < 1 ||
           dispatchQty > availableStock
         "
-        class="full-width"
-      />
-      <div v-if="loading" class="q-mt-md flex flex-center">
-        <q-spinner-hourglass color="light-green" size="50px" />
-      </div>
-    </q-form>
-    <!-- ===================== PRODUCT ADDITION FORM ===================== -->
-    <q-separator spaced />
-    <div v-if="isAdmin || isSuperAdmin" class="text-subtitle2 text-center q-my-md">
-      <!-- Select Province -->
-      <q-banner rounded dense class="bg-red-1 text-red-10 q-mb-sm">
-        <template v-slot:avatar>
-          <q-icon name="warning" color="red" />
-        </template>
-
-        <div class="text-bold">Used Only to Enter New Stock to MainStore</div>
-
-        <div class="text-caption">Not for Daily Use</div>
-      </q-banner>
-      Add Product to Main Store / Province
-    </div>
-
-    <q-form v-if="isSuperAdmin" @submit.prevent="submitProductAddition" class="column q-gutter-md">
-      <q-select
-        v-model="newProduct.selectedProvince"
-        :options="provinceOptions"
-        option-label="name"
-        option-value="province_code"
-        label="Select Province"
-        use-input
-        input-debounce="300"
-        dense
-        outlined
-      />
-
-      <!-- Select Product -->
-      <q-select
-        v-model="newProduct.selectedProduct"
-        :options="activeProducts"
-        option-label="productname"
-        option-value="productcode"
-        label="Select Product"
-        use-input
-        input-debounce="300"
-        dense
-        outlined
-        @filter="filterActiveProducts"
-      />
-
-      <!-- Available Stock Input -->
-      <q-input
-        v-model="provinceStock"
-        label="Available Stock"
-        readonly
-        dense
-        outlined
-        input-class="text-blue text-bold text-center"
-      />
-
-      <!-- Quantity -->
-      <q-input
-        v-model.number="newProduct.quantity"
-        type="number"
-        min="1"
-        label="Quantity (pcs)"
-        dense
-        outlined
-      />
-
-      <!-- Date Added -->
-      <q-input v-model="newProduct.dateAdded" type="date" label="Date Added" dense outlined />
-
-      <!-- Expiry Date -->
-      <q-input v-model="newProduct.expiryDate" type="date" label="Expiry Date" dense outlined />
-
-      <!-- Submit Button -->
-      <q-btn
-        type="submit"
-        label="Add Product"
-        color="secondary"
-        :disable="!canAddProduct"
-        class="full-width"
       />
     </q-form>
   </q-card>
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+// Dependencies for dispatch storage, activity logging, and user controls.
+import { ref, computed, watch, onMounted } from 'vue'
 import { supabase } from 'src/boot/supabase'
+import { logActivity, ACTIVITY_TYPES } from 'src/utils/activityLog'
 import { useAuth } from 'stores/auth'
 import DistributorSearch from './DistributorSearch.vue'
 import { Dialog } from 'quasar'
 import { useQuasar } from 'quasar'
 const auth = useAuth()
 const $q = useQuasar()
+const emit = defineEmits(['dispatched', 'typeChange'])
 const fromOptions = ref([])
 const toOptions = ref([])
 const fromValue = ref(null)
@@ -272,54 +214,31 @@ const isSuperAdmin = computed(() => auth.userDetails?.role === 'SuperAdmin')
 const isUser = computed(() => !isAdmin.value && !isSuperAdmin.value)
 // set default dispatch type based on role
 const dispatchType = ref(isAdmin.value || isSuperAdmin.value ? 'SHOP' : 'PROMOS')
+watch(dispatchType, (t) => emit('typeChange', t), { immediate: true })
 const availableStock = ref(0)
 // Reactive reference for stock
-const provinceStock = ref(0)
 const loading = ref(false)
+
+// Same payload => same request id, so a retry after a lost response is applied only once
+let pendingRequest = { key: null, id: null }
+function getRequestId(...parts) {
+  const key = JSON.stringify(parts)
+  if (pendingRequest.key !== key) {
+    pendingRequest = { key, id: crypto.randomUUID() }
+  }
+  return pendingRequest.id
+}
+function clearRequestId() {
+  pendingRequest = { key: null, id: null }
+}
 // ✅ Reactive form object
 
 // For non-admin users
 const userDPCCODE = computed(() => auth.userDetails?.dpc_id || 'N/A')
 
-const newProduct = reactive({
-  selectedProvince: null,
-  selectedProduct: null,
-  quantity: 1,
-  dateAdded: '',
-  expiryDate: '',
-  modifiedBy: auth.userDetails?.firstname || '',
-})
 // ✅ Option lists
-const provinceOptions = ref([])
 const activeProducts = ref([])
 const filteredProducts = ref([])
-
-// ✅ Validation
-const canAddProduct = computed(
-  () => newProduct.selectedProvince && newProduct.selectedProduct && newProduct.quantity > 0,
-)
-// 🟩 Fetch provinces
-async function fetchProvinces() {
-  // ✅ Only skip if user has no country_code
-  if (!auth.userDetails?.country_code) {
-    console.warn('❌ No country_code found for current user')
-    return
-  }
-
-  console.log('🔍 Fetching provinces for country_code:', auth.userDetails.country_code)
-
-  const { data, error } = await supabase
-    .from('province')
-    .select('name, province_code')
-    .eq('country_code', auth.userDetails.country_code)
-
-  if (error) {
-    console.error('⚠️ Error fetching provinces:', error.message)
-  } else {
-    //console.log('✅ Provinces fetched:', data)
-    provinceOptions.value = data
-  }
-}
 
 async function fetchActiveProducts() {
   const { data, error } = await supabase
@@ -418,37 +337,6 @@ async function fetchStockQuantity() {
 }
 
 // Function to fetch stock for selected province and product
-async function fetchProvinceStock() {
-  const tableName =
-    typeof newProduct.selectedProvince === 'object'
-      ? newProduct.selectedProvince.province_code
-      : newProduct.selectedProvince
-
-  const productCode =
-    typeof newProduct.selectedProduct === 'object'
-      ? newProduct.selectedProduct.productcode
-      : newProduct.selectedProduct
-
-  if (!tableName || !productCode) {
-    provinceStock.value = 0
-    return
-  }
-
-  try {
-    const { data: existing, error } = await supabase
-      .from(tableName)
-      .select('quantity')
-      .eq('productcode', productCode)
-      .maybeSingle() // returns null if not found
-
-    if (error) throw error
-    provinceStock.value = existing?.quantity || 0
-  } catch (err) {
-    console.error('Error fetching province stock:', err)
-    provinceStock.value = 0
-  }
-}
-
 watch(dispatchType, () => populateSelects(false))
 
 // =======================================================
@@ -483,12 +371,6 @@ watch(dispatchDate, (newDate) => {
   }
 })
 
-// Watch for changes in province or product selection
-watch(
-  () => [newProduct.selectedProvince, newProduct.selectedProduct],
-  () => fetchProvinceStock(),
-)
-
 watch(
   () => auth.userDetails,
   (newVal) => {
@@ -501,106 +383,6 @@ watch(
     }
   },
 )
-
-async function submitProductAddition() {
-  try {
-    // Validate selection
-    if (!newProduct.selectedProvince || !newProduct.selectedProduct) {
-      throw new Error('Please select a province and product')
-    }
-
-    // Extract province_code string from Proxy/object
-    const tableName =
-      typeof newProduct.selectedProvince === 'object'
-        ? newProduct.selectedProvince.province_code
-        : newProduct.selectedProvince
-
-    if (!tableName) throw new Error('No province selected')
-
-    // Extract productcode string from Proxy/object
-    const productCode =
-      typeof newProduct.selectedProduct === 'object'
-        ? newProduct.selectedProduct.productcode
-        : newProduct.selectedProduct
-
-    if (!productCode) throw new Error('No product selected')
-
-    // Fetch if product already exists
-    const { data: existing, error: fetchError } = await supabase
-      .from(tableName)
-      .select('quantity')
-      .eq('productcode', productCode)
-      .single()
-
-    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError
-
-    // Insert or update stock
-    if (existing) {
-      const { error: updateError } = await supabase
-        .from(tableName)
-        .update({
-          quantity: existing.quantity + newProduct.quantity,
-          expirydate: newProduct.expiryDate || null,
-          dateadded: newProduct.dateAdded || null,
-          modifiedby: auth.userDetails?.firstname || 'system',
-        })
-        .eq('productcode', productCode)
-
-      if (updateError) throw updateError
-
-      $q.notify({ type: 'info', message: 'Product exists: quantity updated!' })
-    } else {
-      const { error: insertError } = await supabase.from(tableName).insert({
-        productcode: productCode,
-        quantity: newProduct.quantity,
-        expirydate: newProduct.expiryDate || null,
-        dateadded: newProduct.dateAdded || null,
-        modifiedby: auth.userDetails?.firstname || 'system',
-      })
-
-      if (insertError) throw insertError
-
-      $q.notify({ type: 'positive', message: 'Product added successfully!' })
-    }
-
-    // 🔹 Log to dispatchlogs table directly
-    const currentUser = auth.userDetails?.firstname || 'system'
-    const { error: logError } = await supabase.from('dispatchlogs').insert({
-      from_location: currentUser, // current user as source
-      to_location:
-        typeof newProduct.selectedProvince === 'object'
-          ? newProduct.selectedProvince.province_code
-          : newProduct.selectedProvince,
-      productcode: productCode,
-      quantity: newProduct.quantity,
-      dispatchedby: currentUser,
-      status: 'STORE_ADDITION',
-    })
-
-    if (logError) throw logError
-
-    // Reset form
-    Object.assign(newProduct, {
-      selectedProvince: null,
-      selectedProduct: null,
-      quantity: 1,
-      dateAdded: '',
-      expiryDate: '',
-    })
-
-    $q.notify({ type: 'positive', message: 'Dispatch log recorded successfully!' })
-  } catch (err) {
-    console.error('Error adding product:', err)
-    $q.notify({ type: 'negative', message: err.message })
-  }
-}
-
-function filterActiveProducts(val, update) {
-  if (val === '') return update(() => activeProducts.value)
-  update(() =>
-    activeProducts.value.filter((p) => p.productname.toLowerCase().includes(val.toLowerCase())),
-  )
-}
 
 function onDispatchDateChange(newDate) {
   if (!newDate) return
@@ -834,9 +616,9 @@ watch(dispatchType, (newVal, oldVal) => {
     })
 })
 
+// Load locations and products before the form is used.
 onMounted(async () => {
   await loadProvinces()
-  await fetchProvinces()
   await fetchActiveProducts()
   await loadShops()
   populateSelects()
@@ -876,7 +658,7 @@ function getModifiedBy() {
 }
 
 async function handleShopDispatch() {
-  if (loading.value) return
+  if (loading.value) return false
   loading.value = true
 
   try {
@@ -886,7 +668,10 @@ async function handleShopDispatch() {
     const productname = getValue(selectedProduct.value, 'productname')
     const qty = Number(dispatchQty.value)
 
+    if (isNaN(qty) || qty <= 0) throw new Error('Invalid quantity.')
+
     const { error } = await supabase.rpc('transfer_stock', {
+      p_request_id: getRequestId('SHOP', province, shop, product, qty, dispatchDate.value),
       p_province: province, // ✅ 1st
       p_shopcode: shop, // ✅ 2nd
       p_productcode: product, // ✅ 3rd
@@ -899,7 +684,10 @@ async function handleShopDispatch() {
 
     if (error) throw error
 
-    // 🟢 SUCCESS MESSAGE
+    logActivity(ACTIVITY_TYPES.DISPATCH, {
+      reference: product,
+      description: `Dispatch ${qty} × ${productname || product} from ${province} to shop ${shop}`,
+    })
     $q.notify({
       type: 'positive',
       position: 'top',
@@ -907,18 +695,21 @@ async function handleShopDispatch() {
       timeout: 3500,
       actions: [{ icon: 'close', color: 'white' }],
     })
+    clearRequestId()
+    return true
   } catch (err) {
     $q.notify({
       type: 'negative',
       message: err.message,
     })
+    return false
   } finally {
     loading.value = false
   }
 }
 
 async function handleDPCDispatch() {
-  if (loading.value) return
+  if (loading.value) return false
   loading.value = true
 
   try {
@@ -938,6 +729,7 @@ async function handleDPCDispatch() {
     }
 
     const { error } = await supabase.rpc('transfer_store_stock', {
+      p_request_id: getRequestId('DPC', fromStore, toStore, productCode, qty, dispatchDate.value),
       p_from_store: fromStore, // must be first
       p_to_store: toStore, // second
       p_productcode: productCode, // third
@@ -949,6 +741,11 @@ async function handleDPCDispatch() {
 
     if (error) throw error
 
+    logActivity(ACTIVITY_TYPES.DISPATCH, {
+      reference: productCode,
+      description: `Store transfer ${qty} × ${productCode} from ${fromStore} to ${toStore}`,
+    })
+
     $q.notify({
       type: 'positive',
       message: `✅ ${qty} x ${productCode} moved from ${fromStore} → ${toStore}`,
@@ -959,6 +756,8 @@ async function handleDPCDispatch() {
 
     dispatchQty.value = 0
     selectedProduct.value = null
+    clearRequestId()
+    return true
   } catch (err) {
     console.error('DPC Dispatch error:', err)
     $q.notify({
@@ -966,6 +765,7 @@ async function handleDPCDispatch() {
       message: err.message,
       position: 'top',
     })
+    return false
   } finally {
     loading.value = false
   }
@@ -976,7 +776,7 @@ async function handleDPCDispatch() {
 // =======================================================
 
 async function handlePromoDispatch() {
-  if (loading.value) return
+  if (loading.value) return false
   loading.value = true
 
   try {
@@ -995,6 +795,7 @@ async function handlePromoDispatch() {
     }
 
     const { error } = await supabase.rpc('promo_dispatch', {
+      p_request_id: getRequestId('PROMOS', shop, productCode, qty, distributorId, date),
       p_shop_table: `${shop}_STOCK`,
       p_productcode: productCode,
       p_quantity: qty,
@@ -1005,6 +806,11 @@ async function handlePromoDispatch() {
     })
 
     if (error) throw error
+
+    logActivity(ACTIVITY_TYPES.DISPATCH, {
+      reference: distributorId,
+      description: `Promo dispatch ${qty} × ${productCode} from ${shop} to distributor ${distributorId}`,
+    })
 
     $q.notify({
       type: 'positive',
@@ -1019,6 +825,8 @@ async function handlePromoDispatch() {
     selectedProduct.value = null
     distributoridno.value = ''
     distributorname.value = ''
+    clearRequestId()
+    return true
   } catch (err) {
     console.error('Promo Dispatch error:', err)
     $q.notify({
@@ -1026,6 +834,7 @@ async function handlePromoDispatch() {
       message: err.message,
       position: 'top',
     })
+    return false
   } finally {
     loading.value = false
   }
@@ -1036,7 +845,7 @@ async function handlePromoDispatch() {
 // =======================================================
 
 async function handleExpiryDispatch() {
-  if (loading.value) return
+  if (loading.value) return false
   loading.value = true
 
   try {
@@ -1052,6 +861,7 @@ async function handleExpiryDispatch() {
     if (!expDate) throw new Error('Please provide an expiry date.')
 
     const { error } = await supabase.rpc('expiry_dispatch', {
+      p_request_id: getRequestId('EXPIRY', table, product, qty, expDate, dispatchDate.value),
       p_shop_table: table,
       p_productcode: product,
       p_quantity: qty,
@@ -1062,12 +872,20 @@ async function handleExpiryDispatch() {
 
     if (error) throw new Error(error.message)
 
+    logActivity(ACTIVITY_TYPES.DISPATCH, {
+      reference: product,
+      description: `Expiry dispatch ${qty} × ${product} from ${shop} (expiry ${expDate})`,
+    })
+
     $q.notify({
       type: 'positive',
       message: `🧾 ${qty} expired units of ${product} recorded successfully.`,
     })
+    clearRequestId()
+    return true
   } catch (err) {
     $q.notify({ type: 'negative', message: err.message })
+    return false
   } finally {
     loading.value = false
   }
@@ -1078,7 +896,7 @@ async function handleExpiryDispatch() {
 // =======================================================
 
 async function handleDebtDispatch() {
-  if (loading.value) return
+  if (loading.value) return false
   loading.value = true
 
   try {
@@ -1096,6 +914,7 @@ async function handleDebtDispatch() {
     const table = `${shop}_STOCK`
 
     const { error } = await supabase.rpc('debt_dispatch', {
+      p_request_id: getRequestId('DEBTS', table, product, qty, distributor, date),
       p_shop_table: table,
       p_productcode: product,
       p_quantity: qty,
@@ -1111,8 +930,11 @@ async function handleDebtDispatch() {
       type: 'warning',
       message: `💳 ${qty} of ${product} recorded as debt for ${distributor}`,
     })
+    clearRequestId()
+    return true
   } catch (err) {
     $q.notify({ type: 'negative', message: err.message })
+    return false
   } finally {
     loading.value = false
   }
@@ -1129,32 +951,36 @@ async function submitDispatch() {
   try {
     if (!dispatchType.value) throw new Error('Please select a dispatch type.')
 
+    let ok = false
     switch (dispatchType.value) {
       case 'SHOP':
-        await handleShopDispatch()
+        ok = await handleShopDispatch()
         break
 
       case 'DPC':
-        await handleDPCDispatch()
+        ok = await handleDPCDispatch()
         break
 
       case 'PROMOS':
-        await handlePromoDispatch()
+        ok = await handlePromoDispatch()
         break
 
       case 'EXPIRY':
-        await handleExpiryDispatch()
+        ok = await handleExpiryDispatch()
         break
 
       case 'DEBTS':
-        await handleDebtDispatch()
+        ok = await handleDebtDispatch()
         break
 
       default:
         throw new Error('Unknown dispatch type selected.')
     }
-    // ✅ Call reusable reset after successful submission
-    resetDispatchForm()
+    // Keep the form intact on failure so the user can safely retry
+    if (ok) {
+      resetDispatchForm()
+      emit('dispatched')
+    }
   } catch (err) {
     console.error('Dispatch error:', err)
     $q.notify({ type: 'negative', message: err.message })

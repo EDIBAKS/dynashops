@@ -1,98 +1,275 @@
 <template>
-  <q-card flat bordered class="q-pa-md bg-transparent" style="max-width: 600px; margin: auto">
-    <q-form ref="formRef" @submit.prevent="submitWithdrawJS" class="column q-gutter-md">
-      <!-- 🟦 Withdraw Type -->
-      <div class="text-center text-subtitle2 text-bold">Withdraw Type</div>
-      <q-option-group
-        v-model="withdrawType"
-        :options="withdrawOptions"
-        type="radio"
-        inline
-        color="blue"
-      />
-
-      <!-- 🟩 From Select -->
-      <q-select
-        v-model="selectedFrom"
-        :options="fromOptions"
-        option-label="name"
-        option-value="code"
-        label="From"
-        dense
-        outlined
-        emit-value
-        map-options
-      />
-
-      <!-- 🟩 To Select -->
-      <q-select
-        v-model="selectedTo"
-        :options="toOptions"
-        option-label="name"
-        option-value="code"
-        label="To"
-        dense
-        outlined
-        emit-value
-        map-options
-      />
-
-      <!-- 🟩 Product Select -->
-      <q-select
-        v-model="selectedProduct"
-        :options="filteredProducts"
-        option-label="productname"
-        option-value="productcode"
-        label="Select Product"
-        dense
-        outlined
-        emit-value
-        map-options
-        use-input
-        input-debounce="300"
-        fill-input
-        hide-selected
-        @filter="filterProducts"
-        @update:model-value="onProductSelected"
-      />
-
-      <!-- 🟦 Available Stock -->
-      <q-input
-        v-model="availableStock"
-        label="Available Stock"
-        readonly
-        dense
-        outlined
-        input-class="text-blue text-bold text-center"
-      />
-
-      <!-- 🟨 Quantity -->
-      <q-input
-        v-model.number="quantity"
-        type="number"
-        label="Quantity to Withdraw"
-        dense
-        outlined
-        lazy-rules
-        :rules="[
-          (val) => val > 0 || 'Enter a valid quantity',
-          (val) => val <= availableStock || 'Cannot exceed available stock',
-        ]"
-      />
-
-      <!-- 🟩 Submit -->
-      <div class="text-center q-mt-md">
-        <q-btn label="Submit Withdrawal" type="submit" color="primary" :disable="!formReady" />
+  <div class="column q-gutter-y-lg q-pb-xl" style="max-width: 900px; margin: auto">
+    <q-card flat bordered class="rounded-2xl border border-slate-200 bg-white shadow-sm q-pa-md">
+      <div class="row items-center q-gutter-sm q-mb-md text-blue-grey-9">
+        <q-icon name="undo" size="22px" class="text-emerald-600" />
+        <div class="text-subtitle1 text-bold">New Withdrawal</div>
       </div>
-    </q-form>
-  </q-card>
+
+      <q-form
+        ref="formRef"
+        @submit.prevent="submitWithdrawJS"
+        class="column"
+        style="gap: 20px"
+      >
+        <!-- Withdraw type -->
+        <q-btn-toggle
+          v-model="withdrawType"
+          :options="withdrawOptions"
+          unelevated
+          no-caps
+          spread
+          toggle-color="blue-grey-9"
+          color="grey-2"
+          text-color="blue-grey-9"
+          class="rounded-lg border border-slate-200"
+        />
+
+        <div class="row q-col-gutter-x-md">
+          <div class="col-12 col-sm-6">
+            <q-select
+              v-model="selectedFrom"
+              :options="fromOptions"
+              option-label="name"
+              option-value="code"
+              label="From"
+              dense
+              outlined
+              emit-value
+              map-options
+              options-dense
+              behavior="menu"
+              popup-content-class="rounded-lg"
+            >
+              <template #prepend><q-icon name="north_east" size="18px" /></template>
+              <template #option="scope">
+                <q-item v-bind="scope.itemProps">
+                  <q-item-section avatar style="min-width: 32px">
+                    <q-icon :name="withdrawType === 'SHOP' ? 'storefront' : 'warehouse'" size="18px" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>{{ scope.opt.name }}</q-item-label>
+                    <q-item-label caption>{{ scope.opt.code }}</q-item-label>
+                  </q-item-section>
+                </q-item>
+              </template>
+              <template #no-option>
+                <q-item><q-item-section class="text-grey">No locations available</q-item-section></q-item>
+              </template>
+            </q-select>
+          </div>
+
+          <div class="col-12 col-sm-6">
+            <q-select
+              v-model="selectedTo"
+              :options="toOptions"
+              option-label="name"
+              option-value="code"
+              label="To"
+              dense
+              outlined
+              emit-value
+              map-options
+              options-dense
+              behavior="menu"
+              popup-content-class="rounded-lg"
+            >
+              <template #prepend><q-icon name="south_west" size="18px" /></template>
+              <template #option="scope">
+                <q-item v-bind="scope.itemProps">
+                  <q-item-section avatar style="min-width: 32px">
+                    <q-icon name="warehouse" size="18px" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>{{ scope.opt.name }}</q-item-label>
+                    <q-item-label caption>{{ scope.opt.code }}</q-item-label>
+                  </q-item-section>
+                </q-item>
+              </template>
+              <template #no-option>
+                <q-item><q-item-section class="text-grey">No locations available</q-item-section></q-item>
+              </template>
+            </q-select>
+          </div>
+        </div>
+
+        <!-- Product -->
+        <q-select
+          v-model="selectedProduct"
+          :options="filteredProducts"
+          option-label="productname"
+          option-value="productcode"
+          label="Select Product"
+          dense
+          outlined
+          emit-value
+          map-options
+          use-input
+          input-debounce="300"
+          fill-input
+          hide-selected
+          options-dense
+          behavior="menu"
+          popup-content-class="rounded-lg"
+          @filter="filterProducts"
+          @update:model-value="onProductSelected"
+        >
+          <template #prepend><q-icon name="inventory_2" size="18px" /></template>
+          <template #option="scope">
+            <q-item v-bind="scope.itemProps">
+              <q-item-section>
+                <q-item-label>{{ scope.opt.productname }}</q-item-label>
+                <q-item-label caption>{{ scope.opt.productcode }}</q-item-label>
+              </q-item-section>
+            </q-item>
+          </template>
+          <template #no-option>
+            <q-item><q-item-section class="text-grey">No products found</q-item-section></q-item>
+          </template>
+        </q-select>
+
+        <div class="row q-col-gutter-x-md q-mb-md">
+          <div class="col-12 col-sm-6">
+            <q-input
+              v-model="availableStock"
+              label="Available Stock"
+              readonly
+              dense
+              outlined
+              input-class="text-blue text-bold text-center"
+            />
+          </div>
+          <div class="col-12 col-sm-6">
+            <q-input
+              v-model.number="quantity"
+              type="number"
+              label="Quantity to Withdraw"
+              dense
+              outlined
+              lazy-rules
+              :rules="[
+                (val) => val > 0 || 'Enter a valid quantity',
+                (val) => val <= availableStock || 'Cannot exceed available stock',
+              ]"
+            />
+          </div>
+        </div>
+
+        <q-btn
+          label="Submit Withdrawal"
+          icon="send"
+          type="submit"
+          unelevated
+          no-caps
+          class="bg-blue-grey-9 text-white rounded-lg"
+          :disable="!formReady"
+        />
+      </q-form>
+    </q-card>
+
+    <!-- My / all withdrawals report -->
+    <q-card flat bordered class="rounded-2xl border border-slate-200 bg-white shadow-sm q-pa-md">
+      <div class="row items-center justify-between q-mb-md">
+        <div class="row items-center q-gutter-sm text-blue-grey-9">
+          <q-icon name="history" size="22px" class="text-emerald-600" />
+          <div class="text-subtitle1 text-bold">
+            {{ isSuperAdmin ? 'All Withdrawals' : 'My Withdrawals' }}
+          </div>
+        </div>
+        <div class="row items-center q-gutter-sm">
+          <q-chip dense square class="bg-slate-100 text-slate-700">
+            {{ filteredReportRows.length }} record{{ filteredReportRows.length === 1 ? '' : 's' }}
+          </q-chip>
+          <q-btn
+            dense
+            unelevated
+            no-caps
+            icon="grid_on"
+            label="Excel"
+            class="bg-emerald-600 text-white rounded-lg q-px-sm"
+            :disable="!filteredReportRows.length"
+            @click="exportReport('excel')"
+          />
+          <q-btn
+            dense
+            unelevated
+            no-caps
+            icon="picture_as_pdf"
+            label="PDF"
+            class="bg-blue-grey-9 text-white rounded-lg q-px-sm"
+            :disable="!filteredReportRows.length"
+            @click="exportReport('pdf')"
+          />
+        </div>
+      </div>
+
+      <div class="row q-col-gutter-sm items-end q-mb-sm">
+        <div class="col-6 col-sm-3">
+          <q-input v-model="reportFrom" type="date" label="From date" dense outlined />
+        </div>
+        <div class="col-6 col-sm-3">
+          <q-input v-model="reportTo" type="date" label="To date" dense outlined />
+        </div>
+        <div v-if="isSuperAdmin" class="col-12 col-sm-3">
+          <q-select
+            v-model="reportUser"
+            :options="reportUserOptions"
+            label="User"
+            dense
+            outlined
+            options-dense
+            behavior="menu"
+            popup-content-class="rounded-lg"
+          >
+            <template #prepend><q-icon name="person" size="18px" /></template>
+          </q-select>
+        </div>
+        <div class="col-12 col-sm-3">
+          <q-btn
+            label="Apply"
+            icon="search"
+            unelevated
+            no-caps
+            class="bg-blue-grey-9 text-white rounded-lg full-width"
+            :loading="reportLoading"
+            @click="fetchMyWithdraws"
+          />
+        </div>
+      </div>
+
+      <div class="row items-center justify-between rounded-lg border border-slate-200 bg-slate-50 q-pa-sm q-px-md q-mb-md">
+        <div class="row items-center q-gutter-sm text-slate-700">
+          <q-icon name="payments" size="20px" class="text-emerald-600" />
+          <span class="text-caption">Total product value (distributor price)</span>
+        </div>
+        <div class="text-subtitle1 text-bold text-blue-grey-9">{{ formatMoney(reportValue) }}</div>
+      </div>
+
+      <q-table
+        v-model:pagination="reportPagination"
+        flat
+        dense
+        row-key="id"
+        :rows="filteredReportRows"
+        :columns="reportColumns"
+        :loading="reportLoading"
+        :rows-per-page-options="[10, 25, 50, 0]"
+        table-header-class="bg-slate-100 text-slate-700"
+        no-data-label="No withdrawals in this period"
+      />
+    </q-card>
+  </div>
 </template>
 
 <script setup>
+// Withdrawal form state, stock queries, activity logging, and exports.
 import { ref, computed, onMounted, watch } from 'vue'
 import { Dialog, useQuasar } from 'quasar'
 import { supabase } from 'src/boot/supabase'
+import { logActivity, ACTIVITY_TYPES } from 'src/utils/activityLog'
 import { useAuth } from 'stores/auth'
+import { buildExportData, buildMeta, exportExcel, exportPdf } from 'src/utils/reportExport'
+import { fetchPriceMap, totalValue, formatMoney } from 'src/utils/productValue'
 
 const $q = useQuasar()
 const auth = useAuth()
@@ -329,6 +506,14 @@ async function fetchAvailableStock() {
   }
 }
 
+// Same payload reuses the same id so a retry after a lost response applies only once
+let pendingWithdraw = { key: null, id: null }
+function withdrawRequestId(...parts) {
+  const key = JSON.stringify(parts)
+  if (pendingWithdraw.key !== key) pendingWithdraw = { key, id: crypto.randomUUID() }
+  return pendingWithdraw.id
+}
+
 const submitWithdrawJS = async () => {
   // 🔐 Always validate the form first
   const valid = await formRef.value.validate()
@@ -362,9 +547,16 @@ const submitWithdrawJS = async () => {
       p_productcode: product,
       p_quantity: qty,
       p_createdby: currentUser,
+      p_request_id: withdrawRequestId(fromTable, toProvince, product, qty),
     })
 
     if (error) throw error
+    pendingWithdraw = { key: null, id: null }
+
+    logActivity(ACTIVITY_TYPES.WITHDRAWAL, {
+      reference: product,
+      description: `Withdrawal ${qty} × ${product} from ${fromTable} to ${toProvince}`,
+    })
 
     // ✅ Success
     $q.notify({
@@ -380,6 +572,7 @@ const submitWithdrawJS = async () => {
     availableStock.value = 0
 
     formRef.value.resetValidation()
+    fetchMyWithdraws()
   } catch (err) {
     console.error(err)
 
@@ -404,9 +597,111 @@ const formReady = computed(() => {
 
 // 🟩 On mount: load data and default DPC mode
 onMounted(async () => {
+  prices.value = await fetchPriceMap()
   await fetchProvinces()
   await fetchShops()
   await fetchActiveProducts()
   populateOptions()
+  await fetchMyWithdraws()
 })
+
+// 🟦 My withdrawals report (defaults to the current month)
+const pad = (n) => String(n).padStart(2, '0')
+const toISODate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+const now = new Date()
+const reportFrom = ref(toISODate(new Date(now.getFullYear(), now.getMonth(), 1)))
+const reportTo = ref(toISODate(new Date(now.getFullYear(), now.getMonth() + 1, 0)))
+const reportRows = ref([])
+const reportLoading = ref(false)
+const reportUser = ref('All users')
+const isSuperAdmin = computed(() => auth.userDetails?.role === 'SuperAdmin')
+
+const reportUserOptions = computed(() => [
+  'All users',
+  ...new Set(reportRows.value.map((r) => r.createdby).filter(Boolean)),
+])
+const filteredReportRows = computed(() =>
+  !isSuperAdmin.value || reportUser.value === 'All users'
+    ? reportRows.value
+    : reportRows.value.filter((r) => r.createdby === reportUser.value),
+)
+
+const reportColumns = [
+  { name: 'from_location', label: 'From', field: 'from_location', align: 'left', sortable: true },
+  { name: 'to_location', label: 'To', field: 'to_location', align: 'left', sortable: true },
+  { name: 'productcode', label: 'Product', field: 'productcode', align: 'left', sortable: true },
+  { name: 'quantity', label: 'Qty', field: 'quantity', align: 'right', sortable: true },
+  {
+    name: 'datecreated',
+    label: 'Date / Time',
+    field: 'datecreated',
+    align: 'left',
+    sortable: true,
+    format: (val) => (val ? new Date(val).toLocaleString() : ''),
+  },
+  { name: 'createdby', label: 'Username', field: 'createdby', align: 'left', sortable: true },
+]
+
+const reportPagination = ref({ sortBy: 'datecreated', descending: true, rowsPerPage: 10 })
+const prices = ref({})
+const reportValue = computed(() => totalValue(filteredReportRows.value, prices.value))
+
+function exportReport(kind) {
+  const { head, body } = buildExportData(
+    reportColumns,
+    filteredReportRows.value,
+    reportPagination.value,
+  )
+  const title = isSuperAdmin.value ? 'All Withdrawals' : 'My Withdrawals'
+  const payload = {
+    title,
+    meta: buildMeta({
+      from: reportFrom.value,
+      to: reportTo.value,
+      printedBy: auth.userDetails?.firstname,
+      extra: [['User', isSuperAdmin.value ? reportUser.value : auth.userDetails?.firstname || ''], ['Records', body.length], ['Total Value', formatMoney(reportValue.value)]],
+    }),
+    filename: `Withdrawals_${reportFrom.value}_${reportTo.value}`,
+    head,
+    body,
+  }
+  if (kind === 'excel') exportExcel(payload)
+  else exportPdf(payload)
+}
+
+async function fetchMyWithdraws() {
+  if (!reportFrom.value || !reportTo.value) return
+  if (reportFrom.value > reportTo.value) {
+    $q.notify({ type: 'warning', message: 'Start date must be before end date.' })
+    return
+  }
+
+  const username = auth.userDetails?.firstname
+  if (!username) return
+
+  const [y, m, d] = reportTo.value.split('-').map(Number)
+  const endExclusive = toISODate(new Date(y, m - 1, d + 1))
+
+  reportLoading.value = true
+  try {
+    let query = supabase
+      .from('withdraws')
+      .select('id, from_location, to_location, productcode, quantity, datecreated, createdby')
+      .gte('datecreated', `${reportFrom.value}T00:00:00`)
+      .lt('datecreated', `${endExclusive}T00:00:00`)
+      .order('datecreated', { ascending: false })
+
+    if (!isSuperAdmin.value) query = query.eq('createdby', username)
+
+    const { data, error } = await query
+
+    if (error) throw error
+    reportRows.value = data || []
+    reportUser.value = 'All users'
+  } catch (err) {
+    $q.notify({ type: 'negative', message: err.message || 'Failed to load withdrawals' })
+  } finally {
+    reportLoading.value = false
+  }
+}
 </script>

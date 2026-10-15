@@ -114,6 +114,7 @@ const rowsWithTotal = computed(() =>
   rows.value.map((row) => {
     let total = 0
 
+        // Sum dynamic location quantities while excluding product identifiers.
     Object.keys(row).forEach((key) => {
       if (key !== 'productcode' && key !== 'productname') {
         const val = Number(row[key])

@@ -11,6 +11,7 @@
         <div class="text-h6">User Registration</div>
       </q-card-section>
 
+      <!-- Collect account details, location, and role. -->
       <q-form @submit.prevent="registerUser">
         <q-input v-model="form.firstname" label="First Name" outlined dense class="q-mb-sm" />
         <q-input v-model="form.lastname" label="Last Name" outlined dense class="q-mb-sm" />
@@ -106,9 +107,11 @@
 </template>
 
 <script setup>
+// Vue reactivity and services for registration and location lookups.
 import { ref, reactive, onMounted, watch } from 'vue'
 import { supabase } from 'boot/supabase'
 import { useQuasar } from 'quasar'
+// Registration form values and available location/role options.
 const $q = useQuasar()
 const hover = ref(false)
 const selected_country = ref('')
@@ -131,6 +134,7 @@ const provinces = ref([])
 const dpcs = ref([])
 const roles = ref([])
 
+// Load selectable countries, roles, provinces, and shops.
 const fetchCountries = async () => {
   const { data, error } = await supabase
     .from('country')
@@ -212,6 +216,7 @@ const fetchShops = async (selected_province) => {
   }))
 }
 
+// Reset dependent selections whenever the chosen location changes.
 watch(selected_country, (newCode) => {
   form.selected_province = '' // reset current selection
   fetchProvinces(newCode)
@@ -222,6 +227,7 @@ watch(selected_province, (newProvinceCode) => {
   fetchShops(newProvinceCode)
 })
 
+// Validate and create the authentication account and user profile.
 const registerUser = async () => {
   if (
     !form.email ||

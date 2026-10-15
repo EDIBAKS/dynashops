@@ -1,4 +1,5 @@
 <template>
+    <!-- Search and select a product by its name or code. -->
   <q-select
     v-model="selectedProduct"
     :options="filteredProducts"
@@ -35,6 +36,7 @@
 </template>
 
 <script setup>
+// Product search uses local selection state and a Supabase lookup.
 import { ref } from 'vue'
 import { supabase } from 'boot/supabase'
 

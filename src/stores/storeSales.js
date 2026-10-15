@@ -2,11 +2,13 @@ import { defineStore } from 'pinia'
 import { supabase } from 'boot/supabase'
 
 export const useSaleStore = defineStore('sales', {
+  // Holds report results, loading state, and the saved filters.
   state: () => ({
     sales: [], // combined header + details data
     salesTally: [], // ← must default to empty array
     currentStock: [],
     loading: false,
+    distributorDetailsLoading: false,
     error: null,
     bestCustomers: [], // ✅ this is what component will use
     // initialize from localStorage
@@ -15,6 +17,7 @@ export const useSaleStore = defineStore('sales', {
     dpccode: localStorage.getItem('reportDpccode') || '',
   }),
 
+  // Query sales and manage the associated report filters.
   actions: {
     // update filters and persist to localStorage
     setFilters({ startDate, endDate, dpccode }) {
@@ -426,11 +429,14 @@ export const useSaleStore = defineStore('sales', {
     },
 
     // in store
-    async fetchSalesRaw(start, end, dpccode) {
+    async fetchSalesRaw(start, end, dpccode, { includeDistributorDetails = false } = {}) {
       this.loading = true
+      this.distributorDetailsLoading = includeDistributorDetails
       this.error = null
       try {
         if (!dpccode) throw new Error('DPC code is required')
+
+        if (includeDistributorDetails) this.salesTally = []
 
         // 1️⃣ Fetch salesheader + salesdetails (unitprice included)
         const { data: salesData, error } = await supabase
@@ -456,6 +462,64 @@ export const useSaleStore = defineStore('sales', {
 
         if (error) throw error
         const sales = salesData || []
+        if (!sales.length) {
+          this.salesTally = []
+          return
+        }
+
+        this.salesTally = sales.map((sale) => ({
+          ...sale,
+          distributorname: '',
+          distributortelephone: '',
+          salesdetails: (sale.salesdetails || []).map((item) => ({
+            ...item,
+            distributorprice: item.unitprice || 0,
+            bvs: Number(item.unitbv) || 0,
+          })),
+        }))
+
+        let distributorLookup = {}
+
+        if (includeDistributorDetails && sales.length) {
+          const salesDistributorIds = [
+            ...new Set(
+              sales.map((sale) => String(sale.distributoridno || '').trim()).filter(Boolean),
+            ),
+          ]
+          const distributorIds = [
+            ...new Set(
+              salesDistributorIds.flatMap((id) => [id, id.toUpperCase(), id.toLowerCase()]),
+            ),
+          ]
+          if (distributorIds.length) {
+            const { data: distributorData, error: distributorError } = await supabase
+              .from('Distributors')
+              .select('DistributorIDNO, DistributorNames, DistributorTelephone1')
+              .in('DistributorIDNO', distributorIds)
+
+            if (distributorError) throw distributorError
+
+            distributorLookup = (distributorData || []).reduce((lookup, distributor) => {
+              lookup[String(distributor.DistributorIDNO || '').trim().toUpperCase()] = {
+                name: distributor.DistributorNames,
+                telephone: distributor.DistributorTelephone1,
+              }
+              return lookup
+            }, {})
+
+            this.salesTally = this.salesTally.map((sale) => {
+              const distributor = distributorLookup[
+                String(sale.distributoridno || '').trim().toUpperCase()
+              ]
+              return {
+                ...sale,
+                distributorname: distributor?.name || '',
+                distributortelephone: distributor?.telephone || '',
+              }
+            })
+          }
+          this.distributorDetailsLoading = false
+        }
 
         // 2️⃣ Collect unique product codes to fetch names/BV only
         const productCodes = [
@@ -480,6 +544,11 @@ export const useSaleStore = defineStore('sales', {
         // 5️⃣ Map product info into salesdetails, use unitprice from salesdetails
         this.salesTally = sales.map((sale) => ({
           ...sale,
+          distributorname:
+            distributorLookup[String(sale.distributoridno || '').trim().toUpperCase()]?.name || '',
+          distributortelephone:
+            distributorLookup[String(sale.distributoridno || '').trim().toUpperCase()]?.telephone ||
+            '',
           salesdetails: (sale.salesdetails || []).map((item) => ({
             ...item,
             productname: productLookup[item.productcode]?.productname || '',
@@ -495,6 +564,7 @@ export const useSaleStore = defineStore('sales', {
         this.salesTally = []
       } finally {
         this.loading = false
+        this.distributorDetailsLoading = false
       }
     },
 

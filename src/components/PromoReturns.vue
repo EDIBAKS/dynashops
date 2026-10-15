@@ -67,12 +67,15 @@
 </template>
 
 <script setup>
+// Reactive form state, notifications, and promo-return persistence.
 import { ref } from 'vue'
 import { useQuasar } from 'quasar'
 import { supabase } from 'src/boot/supabase'
+import { logActivity, ACTIVITY_TYPES } from 'src/utils/activityLog'
 
 const $q = useQuasar()
 
+// The selected period and fetched promo records drive this view.
 const startDate = ref('')
 const endDate = ref('')
 const promos = ref([])
@@ -126,6 +129,12 @@ function confirmReturn(row) {
       $q.notify({ type: 'negative', message: error.message })
       return
     }
+
+    logActivity(ACTIVITY_TYPES.PROMO_RETURN, {
+      reference: String(row.id),
+      dpccode: row.shopcode,
+      description: `Promo returned: ${row.quantity} × ${row.productcode} to ${row.shopcode}`,
+    })
 
     $q.notify({
       type: 'positive',

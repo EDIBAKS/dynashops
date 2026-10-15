@@ -62,6 +62,7 @@
 </template>
 
 <script setup>
+// Dependencies for dispatch data and spreadsheet/PDF generation.
 import { ref, computed } from 'vue'
 import { useQuasar } from 'quasar'
 import { supabase } from 'boot/supabase'
@@ -69,6 +70,7 @@ import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable' // note: import as default
 
+// Date filters and reference data used to build the dispatch matrix.
 const $q = useQuasar()
 const startDate = ref(null)
 const endDate = ref(null)
@@ -201,6 +203,7 @@ function exportExcel() {
   XLSX.writeFile(wb, `DispatchSummary_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
 
+// Render destinations as columns in the printable summary.
 function exportPdf() {
   const doc = new jsPDF('landscape', 'mm', 'a4')
 

@@ -113,6 +113,7 @@
 </template>
 
 <script setup>
+// Role-aware dispatch data, option loading, and report dependencies.
 import { ref, computed, onMounted, watch } from 'vue'
 import { supabase } from 'boot/supabase'
 import { useAuth } from 'stores/auth'

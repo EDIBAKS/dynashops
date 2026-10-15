@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#ffffff"/>
+  <!-- shopping cart, kept inside the Android maskable safe zone -->
+  <path d="M96 124h56l20 28h212a14 14 0 0 1 13 19l-34 108a28 28 0 0 1-27 20H208a28 28 0 0 1-27-21L140 150" fill="none" stroke="#37474f" stroke-width="0" />
+  <path d="M100 130h52l12 26" fill="none" stroke="#37474f" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M164 156h242a12 12 0 0 1 12 15l-30 104a28 28 0 0 1-27 20H214a28 28 0 0 1-27-21z" fill="#37474f"/>
+  <circle cx="220" cy="378" r="26" fill="#37474f"/>
+  <circle cx="368" cy="378" r="26" fill="#37474f"/>
+  <!-- letter D -->
+  <path d="M254 188h34c28 0 46 16 46 42s-18 42-46 42h-34zm28 24v36h8c13 0 21-8 21-18s-8-18-21-18z" fill="#ffffff" fill-rule="evenodd"/>
+</svg>

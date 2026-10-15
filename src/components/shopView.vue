@@ -139,6 +139,7 @@
   </q-card>
 </template>
 <script setup>
+// Stock lookup, role checks, and report export dependencies.
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useAuth } from 'stores/auth'
 import { supabase } from 'boot/supabase'

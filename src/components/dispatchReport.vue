@@ -168,8 +168,10 @@
 </template>
 
 <script setup>
+// Dependencies for dispatch queries, user context, and report exports.
 import { ref, computed, onMounted } from 'vue'
 import { supabase } from 'boot/supabase'
+import { logActivity, ACTIVITY_TYPES } from 'src/utils/activityLog'
 import { useAuth } from 'stores/auth'
 import { useQuasar } from 'quasar'
 import * as XLSX from 'xlsx'
@@ -358,6 +360,11 @@ async function processReturn(row) {
     })
 
     if (error) throw error
+
+    logActivity(ACTIVITY_TYPES.DISPATCH_REVERSAL, {
+      reference: String(row.id),
+      description: `Dispatch reversed: ${row.quantity} × ${row.productname} returned from ${row.to_location} to ${toTable}`,
+    })
 
     dispatches.value = dispatches.value.filter((d) => d.id !== row.id)
 

@@ -1,23 +1,56 @@
 <template>
-  <div class="row q-gutter-xs q-mb-sm items-center no-wrap">
-    <q-btn
-      color="primary"
-      icon="download"
-      label="Excel"
-      flat
-      dense
-      style="min-width: 90px"
-      @click="downloadExcel"
-    />
-    <q-btn
-      color="red"
-      icon="picture_as_pdf"
-      label="PDF"
-      flat
-      dense
-      style="min-width: 90px"
-      @click="downloadPDF"
-    />
+  <div
+    :class="
+      compact
+        ? 'export-actions export-actions--compact'
+        : 'export-actions row q-gutter-xs q-mb-sm items-center no-wrap'
+    "
+  >
+    <!-- Use icon-only actions in compact layouts and labeled buttons otherwise -->
+    <template v-if="compact">
+      <q-btn
+        round
+        dense
+        flat
+        color="blue-grey-9"
+        icon="table_view"
+        aria-label="Export Excel"
+        @click="downloadExcel"
+      >
+        <q-tooltip>Excel</q-tooltip>
+      </q-btn>
+      <q-btn
+        round
+        dense
+        flat
+        color="blue-grey-9"
+        icon="picture_as_pdf"
+        aria-label="Export PDF"
+        @click="downloadPDF"
+      >
+        <q-tooltip>PDF</q-tooltip>
+      </q-btn>
+    </template>
+    <template v-else>
+      <q-btn
+        color="primary"
+        icon="download"
+        label="Excel"
+        flat
+        dense
+        style="min-width: 90px"
+        @click="downloadExcel"
+      />
+      <q-btn
+        color="red"
+        icon="picture_as_pdf"
+        label="PDF"
+        flat
+        dense
+        style="min-width: 90px"
+        @click="downloadPDF"
+      />
+    </template>
   </div>
 </template>
 
@@ -39,6 +72,7 @@ const auth = useAuth()
 // shopName: '',
 //})
 
+// Props provide the selected report data and its export context.
 const props = defineProps({
   reportType: { type: String, required: true },
   reportData: { type: Array, required: true },
@@ -46,6 +80,7 @@ const props = defineProps({
   dpccode: String,
   startDate: String,
   endDate: String,
+  compact: { type: Boolean, default: false },
 })
 
 const downloadExcel = () => {
@@ -565,3 +600,22 @@ const downloadPDF = () => {
   doc.save(`${props.reportType}_${dayjs().format('YYYY-MM-DD')}.pdf`)
 }
 </script>
+
+<style scoped>
+.export-actions--compact {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.export-actions--compact :deep(.q-btn) {
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  color: #37474f !important;
+}
+
+.export-actions--compact :deep(.q-btn:hover) {
+  background: #eceff1;
+}
+</style>

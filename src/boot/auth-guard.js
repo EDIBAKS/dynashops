@@ -22,7 +22,7 @@ export default boot(({ router }) => {
 
     if (auth.user && lastActivity && now - lastActivity > limit) {
       console.log('⏰ Session expired due to inactivity.')
-      await auth.logout()
+      await auth.logout(true)
       return next('/') // redirect to login
     }
 

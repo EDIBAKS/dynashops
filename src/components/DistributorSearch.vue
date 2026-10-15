@@ -40,6 +40,7 @@
 </template>
 
 <script setup>
+// Dependencies for distributor search, selection, and model synchronization.
 import { ref, watch, onMounted } from 'vue'
 import { supabase } from 'boot/supabase'
 
