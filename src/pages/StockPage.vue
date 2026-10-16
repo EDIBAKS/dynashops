@@ -137,9 +137,9 @@ onMounted(async () => {
       return
     }
 
-    // Add MainStore option + all DPCs
+    // Main Store is visible to SuperAdmins only
     dpcOptions.value = [
-      { label: 'Main Store', value: 'MAIN' },
+      ...(auth.userDetails?.role === 'SuperAdmin' ? [{ label: 'Main Store', value: 'MAIN' }] : []),
       ...data.map((d) => ({
         label: d.dpcname,
         value: d.dpccode,

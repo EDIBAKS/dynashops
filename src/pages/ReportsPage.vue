@@ -353,7 +353,7 @@
         </q-card-section>
         <q-card-section v-else class="q-pa-sm bg-transparent" style="border-radius: 12px">
           <!-- Daily Sales -->
-          <template v-if="form.reportType === 'dailySales'">
+          <template v-if="['dailySales', 'queriedSales'].includes(form.reportType)">
             <!-- ✅ Show "No Data Found" Banner -->
             <q-banner
               v-if="!paginatedSales || paginatedSales.length === 0"
@@ -371,7 +371,7 @@
                 class="daily-sale-card-wrap mt-4"
               >
                 <q-card flat bordered class="daily-sale-card overflow-hidden rounded-2xl border-slate-200 bg-white shadow-sm">
-                  <q-card-section class="daily-sale-header bg-gradient-to-r from-slate-800 to-slate-700 p-3 text-white sm:p-4">
+                  <q-card-section class="daily-sale-header bg-gradient-to-r from-slate-800 to-slate-700 p-3 text-white sm:p-4" :class="{ 'daily-sale-header--pending': sale.status === 'pending' }">
                     <div class="daily-sale-header-details">
                       <div class="daily-sale-detail-tile">
                         <span class="daily-sale-detail-label">
@@ -393,7 +393,7 @@
                       <div class="daily-sale-detail-tile">
                         <span class="daily-sale-detail-label">{{ $t('distributorID') }}</span>
                         <span class="break-all font-semibold">{{ sale.distributoridno || '—' }}</span>
-                        <span class="break-words text-slate-300">
+                        <span class="daily-distributor-name">
                           {{ sale.distributorname || 'Fetching...' }}
                         </span>
                       </div>
@@ -403,7 +403,7 @@
                         <span class="daily-sale-detail-secondary">
                           {{ $t('lastmodified') }}: {{ formatDateTime(sale.lastmodified) }}
                         </span>
-                        <span class="daily-sale-detail-secondary">
+                        <span class="daily-sale-detail-secondary daily-sale-user">
                           By {{ sale.createdby || 'Unknown' }}
                         </span>
                       </div>
@@ -566,6 +566,7 @@
                 >
                   <q-card-section
                     class="daily-sale-header bg-gradient-to-r from-slate-800 to-slate-700 p-3 text-white sm:p-4"
+                    :class="{ 'daily-sale-header--pending': sale.status === 'pending' }"
                   >
                     <div class="daily-sale-header-details">
                       <div class="daily-sale-detail-tile">
@@ -584,7 +585,7 @@
                       <div class="daily-sale-detail-tile">
                         <span class="daily-sale-detail-label">{{ $t('distributorID') }}</span>
                         <span class="break-all font-semibold">{{ sale.distributoridno || '—' }}</span>
-                        <span class="break-words text-slate-300">
+                        <span class="daily-distributor-name">
                           {{ sale.distributorname || 'Fetching...' }}
                         </span>
                       </div>
@@ -594,7 +595,7 @@
                         <span class="daily-sale-detail-secondary">
                           {{ $t('lastmodified') }}: {{ formatDateTime(sale.lastmodified) }}
                         </span>
-                        <span class="daily-sale-detail-secondary">
+                        <span class="daily-sale-detail-secondary daily-sale-user">
                           By {{ sale.createdby || 'Unknown' }}
                         </span>
                       </div>
@@ -982,40 +983,36 @@
                         <tr>
                           <th class="text-uppercase text-bold">{{ $t('Date') }}</th>
                           <th class="text-uppercase text-bold">{{ $t('TotalSales') }}</th>
-                          <th class="text-uppercase text-bold">Top customer</th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr v-for="day in dailySalesTotals" :key="day.date">
                           <td>{{ day.date }}</td>
-                          <td>{{ convert(day.total.toFixed(2)) }}</td>
                           <td>
-                            <span
+                            <div class="text-h6 text-weight-bold">
+                              {{ convert(day.total.toFixed(2)) }}
+                            </div>
+                            <q-spinner
                               v-if="salesStore.distributorDetailsLoading"
-                              class="daily-top-customer-loading"
-                              role="status"
-                            >
-                              <q-spinner size="16px" class="q-mr-xs" />
-                              Loading customer…
-                            </span>
+                              size="12px"
+                              class="q-mt-xs"
+                            />
                             <q-badge
                               v-else-if="day.topCustomer"
                               color="blue-grey-8"
-                              class="daily-top-customer-badge q-pa-sm"
+                              class="daily-top-customer-badge q-mt-xs"
+                              style="font-size: 10px"
                             >
-                              <div>
-                                <div
-                                  class="text-weight-bold top-customer-name"
-                                  :title="day.topCustomer.name"
-                                >
-                                  {{ day.topCustomer.name || 'Name unavailable' }}
-                                </div>
-                                <div>ID: {{ day.topCustomer.distributoridno }}</div>
-                                <div>Tel: {{ day.topCustomer.telephone || 'Not provided' }}</div>
-                                <div>BV: {{ day.topCustomer.totalBV.toFixed(2) }}</div>
-                              </div>
+                              <span
+                                class="top-customer-name text-orange-4"
+                                :title="day.topCustomer.name"
+                              >
+                                🏆 {{ day.topCustomer.name || 'Name unavailable' }} ·
+                                <span class="text-orange-4 text-weight-bold">
+                                  {{ day.topCustomer.totalBV.toFixed(2) }} BV
+                                </span>
+                              </span>
                             </q-badge>
-                            <span v-else>—</span>
                           </td>
                         </tr>
                       </tbody>
@@ -1049,7 +1046,7 @@
                     class="q-mb-md"
                   >
                     <div class="text-bold text-uppercase monthly-top-customers-title q-mb-xs">
-                      Top 5 customers by BV — {{ month.month }}
+                      Top 10 customers by BV — {{ month.month }}
                     </div>
                     <div class="table-responsive">
                       <table class="q-table q-table--striped" style="width: 100%">
@@ -1070,7 +1067,9 @@
                               </div>
                             </td>
                             <td>{{ c.distributoridno }}</td>
-                            <td>{{ c.totalBV.toFixed(2) }}</td>
+                            <td class="text-orange-8 text-weight-bold">
+                              {{ c.totalBV.toFixed(2) }}
+                            </td>
                           </tr>
                         </tbody>
                       </table>
@@ -1209,142 +1208,6 @@
                 </q-card-section>
               </q-card>
             </q-card>
-          </template>
-          <template v-if="form.reportType === 'queriedSales'">
-            <!-- Exporter -->
-
-            <!-- No Records Banner -->
-            <div v-if="!paginatedSales.length" class="q-mt-lg">
-              <q-banner dense rounded class="bg-grey-3 text-grey-8 text-center q-pa-sm">
-                <q-icon name="info" color="primary" size="20px" class="q-mr-sm" />
-                {{ $t('noRecordsFound') }}
-              </q-banner>
-            </div>
-
-            <!-- Sales List -->
-            <div v-else>
-              <div v-for="sale in paginatedSales" :key="sale.receiptno" class="q-mt-md">
-                <q-card flat bordered style="border-radius: 30px">
-                  <!-- Section 1: Receipt & Date -->
-                  <q-card-section class="row justify-between items-center">
-                    <div class="text-subtitle2 text-bold text-green-14">
-                      <b>{{ $t('receiptNo') }}:</b> {{ sale.receiptno }}
-                    </div>
-                    <div class="text-subtitle2">
-                      <b>{{ $t('saleDate') }}:</b> {{ formatDateTime(sale.salesdate) }}
-                    </div>
-                  </q-card-section>
-
-                  <!-- Section 2: Distributor info & status -->
-                  <q-card-section class="row justify-between items-center q-pt-xs q-pb-xs">
-                    <div class="column">
-                      <div>
-                        <b>{{ $t('distributorID') }}:</b> {{ sale.distributoridno }}
-                      </div>
-                      <div class="text-red-9 text-bold">
-                        <b>{{ $t('name') }}:</b> {{ sale.distributorname || 'Fetching...' }}
-                      </div>
-                      <div class="text-orange-14">
-                        {{ $t('lastmodified') }}: {{ formatDateTime(sale.lastmodified) }}
-                      </div>
-                    </div>
-                    <div>
-                      <q-chip :color="statusColor(sale.status)" text-color="white" class="q-mb-xs">
-                        {{ sale.status }}
-                      </q-chip>
-                    </div>
-                  </q-card-section>
-
-                  <q-separator />
-
-                  <!-- Section 3: Products -->
-                  <q-card-section class="q-pa-xs">
-                    <div
-                      v-for="(item, i) in sale.salesdetails"
-                      :key="i"
-                      class="row items-center no-wrap q-mb-xs"
-                      style="font-size: var(--product-font-size)"
-                    >
-                      <div class="col-2 text-truncate">{{ item.productcode }}</div>
-                      <div class="col-5 text-truncate" style="min-width: 0">
-                        {{ item.productname || 'Fetching...' }}
-                      </div>
-                      <div class="col-1 text-right">{{ item.quantity }}</div>
-                      <div class="col-2 text-right">
-                        {{ (item.unitprice * item.quantity).toFixed(2) }}
-                      </div>
-                      <div class="col-2 text-right">
-                        {{ (item.unitbv * item.quantity).toFixed(2) }}
-                      </div>
-                    </div>
-                  </q-card-section>
-
-                  <q-separator />
-
-                  <!-- Section 4: Totals -->
-                  <q-card-section class="row items-center justify-between q-pt-xs q-pb-xs no-wrap">
-                    <div
-                      class="row items-center justify-between q-gutter-md no-wrap"
-                      style="width: 100%"
-                    >
-                      <div class="flex-grow">
-                        <b>{{ $t('TotalPrice') }}</b> {{ totalPrice(sale).toFixed(2) }} $
-                      </div>
-                      <div
-                        class="flex-grow text-blue-10 text-bold text-center"
-                        style="flex: 1 1 auto; min-width: 0"
-                      >
-                        <q-icon name="mdi-piggy-bank" size="18px" class="q-mr-xs" />
-                        {{ (totalPrice(sale) * exchangeRate).toFixed(0) }}
-                      </div>
-                      <div
-                        class="flex-grow text-orange-10 text-right"
-                        style="flex: 1 1 auto; min-width: 0"
-                      >
-                        <b>{{ $t('totalBV') }}:</b> {{ totalBV(sale).toFixed(2) }}
-                      </div>
-                    </div>
-                  </q-card-section>
-
-                  <q-separator />
-
-                  <!-- Section 5: Actions -->
-                  <q-card-section class="row justify-center items-center q-pt-xs q-pb-xs">
-                    <div class="row justify-evenly items-center full-width q-gutter-xs wrap">
-                      <q-btn
-                        v-if="isAdmin"
-                        flat
-                        no-caps
-                        color="orange"
-                        label="Update"
-                        icon="edit_note"
-                        @click="
-                          $router.push({ name: 'EditSale', params: { receiptno: sale.receiptno } })
-                        "
-                      />
-                      <q-btn
-                        v-if="isAdmin"
-                        flat
-                        no-caps
-                        color="red"
-                        icon="delete"
-                        label="Delete"
-                        @click="confirmDeleteReceipt(sale)"
-                      />
-                      <q-btn
-                        flat
-                        no-caps
-                        :color="sale.status === 'pending' ? 'red' : 'green'"
-                        :icon="sale.status === 'pending' ? 'check_circle' : 'warning'"
-                        :label="sale.status === 'pending' ? $t('markCorrect') : $t('setPending')"
-                        :disable="sale.status === 'pending' && !isAdmin"
-                        @click="toggleStatus(sale)"
-                      />
-                    </div>
-                  </q-card-section>
-                </q-card>
-              </div>
-            </div>
           </template>
           <template v-if="form.reportType === 'bestCustomers'">
             <!-- Export -->
@@ -2478,7 +2341,7 @@ const dailySalesTotals = computed(() => {
     }))
     .sort((a, b) => new Date(a.date) - new Date(b.date))
 })
-// Top 5 customers per month by total BV
+// Top 10 customers per month by total BV
 const monthlyTopCustomers = computed(() => {
   const months = new Map()
 
@@ -2507,7 +2370,7 @@ const monthlyTopCustomers = computed(() => {
         .sort(
           (a, b) => b.totalBV - a.totalBV || a.distributoridno.localeCompare(b.distributoridno),
         )
-        .slice(0, 5),
+        .slice(0, 10),
     }))
 })
 // Monthly tallies grouped by month and productcode
@@ -2838,6 +2701,10 @@ const toggleStatus = (sale) => {
     try {
       const updatedStatus = await salesStore.toggleStatus(sale.receiptno, sale.salesdate, userRole)
       sale.status = updatedStatus
+      // On Flagged Sales a receipt marked correct leaves the list; reload the remaining pending ones
+      if (form.reportType === 'queriedSales' && updatedStatus !== 'pending') {
+        await fetchData()
+      }
       // 🔥 update counter instantly
       fetchPendingCount()
 
@@ -3157,6 +3024,21 @@ const submitUpdate = async () => {
 
 .daily-sale-header {
   background-image: linear-gradient(115deg, #263238 0%, #37474f 58%, #455a64 100%);
+}
+
+.daily-sale-header--pending {
+  background-image: linear-gradient(115deg, #e65100 0%, #f57c00 58%, #fb8c00 100%);
+}
+.daily-sale-header--pending .daily-distributor-name,
+.daily-sale-header--pending .daily-sale-detail-secondary {
+  color: #fff;
+}
+.daily-sale-detail-secondary.daily-sale-user {
+  color: #ffa726;
+  font-weight: 600;
+}
+.daily-sale-header--pending .daily-sale-detail-secondary.daily-sale-user {
+  color: #fff;
 }
 
 .daily-sale-status {
@@ -3669,6 +3551,22 @@ const submitUpdate = async () => {
   overflow: hidden;
   word-break: break-word;
   min-height: 2.6em;
+}
+.daily-distributor-name {
+  color: #ff9800;
+  font-weight: 600;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
+}
+@media (min-width: 601px) {
+  .daily-distributor-name {
+    font-size: 1.05em;
+  }
 }
 .monthly-top-customers-title {
   font-size: 0.95rem;

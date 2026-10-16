@@ -170,7 +170,7 @@
               <SalesReport />
             </q-tab-panel>
 
-            <q-tab-panel name="Extraction">
+            <q-tab-panel v-if="isSuperAdmin" name="Extraction">
               <div class="text-h6">📊 Admin Only</div>
               <ExxtractionPage />
             </q-tab-panel>

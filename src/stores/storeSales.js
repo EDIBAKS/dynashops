@@ -407,10 +407,10 @@ export const useSaleStore = defineStore('sales', {
           return
         }
 
-        // --- 5) Mark header as complete and set lastmodified ---
+        // --- 5) Editing a receipt marks it correct (clears pending) ---
         const { error: statusError } = await supabase
           .from('salesheader')
-          .update({ status: 'complete', lastmodified: new Date() })
+          .update({ status: 'correct', lastmodified: new Date() })
           .eq('receiptno', header.receiptno)
         if (statusError) throw statusError
 

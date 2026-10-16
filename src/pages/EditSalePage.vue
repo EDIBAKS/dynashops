@@ -487,6 +487,15 @@ async function submitUpdate() {
     })
     if (error) throw error
 
+    // An edit resolves the flag: the receipt becomes correct straight away
+    if (items.length > 0) {
+      const { error: statusError } = await supabase
+        .from('salesheader')
+        .update({ status: 'correct' })
+        .eq('receiptno', form.value.receiptno)
+      if (statusError) throw statusError
+    }
+
     if (items.length === 0) {
       logActivity(ACTIVITY_TYPES.RECEIPT_DELETED, {
         reference: form.value.receiptno,

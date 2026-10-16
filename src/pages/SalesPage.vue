@@ -234,15 +234,38 @@
             <div class="sales-quantity-grid">
               <div class="sales-field">
                 <label class="sales-label">{{ $t('qty') }}</label>
-                <input
-                  v-model.number="selectedQuantity"
-                  type="number"
-                  min="1"
-                  inputmode="numeric"
-                  class="sales-native-input text-center font-semibold"
-                  @input="updateTotals"
-                  :disabled="loading"
-                />
+                <div class="qty-stepper">
+                  <input
+                    v-model.number="selectedQuantity"
+                    type="number"
+                    min="1"
+                    inputmode="numeric"
+                    class="sales-native-input qty-input text-center font-semibold"
+                    @input="updateTotals"
+                    @blur="normalizeQuantity"
+                    :disabled="loading"
+                  />
+                  <div class="qty-buttons">
+                    <button
+                      type="button"
+                      class="qty-btn"
+                      aria-label="Increase quantity"
+                      :disabled="loading"
+                      @click="changeQuantity(1)"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      class="qty-btn"
+                      aria-label="Decrease quantity"
+                      :disabled="loading"
+                      @click="changeQuantity(-1)"
+                    >
+                      ▼
+                    </button>
+                  </div>
+                </div>
               </div>
               <div class="sales-field">
                 <label class="sales-label">{{ $t('price') }}</label>
@@ -537,9 +560,18 @@ const clearProductSelection = () => {
 }
 //watch that quantity never goes below 1
 // Keep quantity changes within the available stock.
-watch(selectedQuantity, (val) => {
-  if (val < 1) selectedQuantity.value = 1
-})
+// An empty field is allowed while typing; it is normalized on blur.
+function normalizeQuantity() {
+  const q = Number(selectedQuantity.value)
+  selectedQuantity.value = Number.isFinite(q) && q >= 1 ? Math.floor(q) : 1
+  updateTotals()
+}
+
+function changeQuantity(delta) {
+  const q = Number(selectedQuantity.value) || 0
+  selectedQuantity.value = Math.max(1, q + delta)
+  updateTotals()
+}
 
 watch(selectedQuantity, (newQty) => {
   if (selectedProduct.value && availableQuantity.value > 0 && newQty > availableQuantity.value) {
@@ -1605,6 +1637,46 @@ watch(
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.625rem;
+}
+
+.qty-stepper {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.sales-native-input.qty-input {
+  width: 100%;
+  padding-right: 2.25rem;
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.qty-input::-webkit-outer-spin-button,
+.qty-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.qty-buttons {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  bottom: 8px;
+  width: 1.25rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.qty-btn {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: #475569;
+  font-size: 0.6rem;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
 }
 
 .sales-field {
