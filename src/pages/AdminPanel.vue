@@ -206,6 +206,10 @@
               <div class="text-h6">📊Consolidated Dispatch</div>
               <CompactDispatch />
             </q-tab-panel>
+            <q-tab-panel v-if="isSuperAdmin" name="Province">
+              <div class="text-h6 q-mb-md">Create Province</div>
+              <ProvinceManager />
+            </q-tab-panel>
             <!-- Review recorded activity for the selected date range. -->
             <q-tab-panel v-if="isSuperAdmin" name="ActivityLogs">
               <div class="text-h6 q-mb-md">Activity Logs</div>
@@ -281,6 +285,7 @@ import GineologyTree from 'src/components/GineologyTree.vue'
 import ExpiryReport from 'src/components/ExpiryReport.vue'
 import StockDashBoard from 'src/components/StockDashBoard.vue'
 import ActivityLogReport from 'src/components/ActivityLogReport.vue'
+import ProvinceManager from 'src/components/ProvinceManager.vue'
 // Current panel selection, permissions, and report navigation state.
 const auth = useAuth()
 const currentDate = ref('')
@@ -335,6 +340,7 @@ const reportGroups = computed(() =>
       items: [
         { value: 'Extraction', label: 'Data Extract', icon: 'download', show: isSuperAdmin.value },
         { value: 'ActivityLogs', label: 'Activity Logs', icon: 'history', show: isSuperAdmin.value },
+        { value: 'Province', label: 'Create Province', icon: 'add_location_alt', show: isSuperAdmin.value },
       ],
     },
   ]

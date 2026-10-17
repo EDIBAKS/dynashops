@@ -318,17 +318,17 @@ async function fetchStockQuantity() {
   }
 
   try {
+    // Sum rows so the total is right even if the table holds several rows per product
     const { data, error } = await supabase
       .from(table)
       .select('quantity')
       .eq('productcode', product)
-      .maybeSingle()
 
     if (error) {
       console.error(`Error fetching stock from ${table}:`, error)
       availableStock.value = 0
     } else {
-      availableStock.value = data?.quantity || 0
+      availableStock.value = (data || []).reduce((sum, r) => sum + (r.quantity || 0), 0)
     }
   } catch (err) {
     console.error('Stock fetch error:', err)
