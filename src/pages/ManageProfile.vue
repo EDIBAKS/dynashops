@@ -596,7 +596,12 @@ const updateProfile = async () => {
         message: $t('profileUpdatedLogout'),
       })
       setTimeout(async () => {
-        await logoutAndRedirect()
+        try {
+          await logoutAndRedirect()
+        } catch (error) {
+          console.error('Logout after profile update failed:', error)
+          $q.notify({ type: 'negative', message: $t('sessionLogoutFailed') })
+        }
       }, 2000)
     }
   } catch (err) {

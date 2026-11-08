@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { supabase } from 'boot/supabase'
+import { fetchDailySales } from '../utils/reportSales'
 
 export const useSaleStore = defineStore('sales', {
   // Holds report results, loading state, and the saved filters.
@@ -39,27 +40,14 @@ export const useSaleStore = defineStore('sales', {
       try {
         if (!dpc) throw new Error('DPC code is required')
 
-        // 1️⃣ Fetch sales headers + details (IDs only)
-        const { data: salesData, error: salesError } = await supabase
-          .from('salesheader')
-          .select(
-            'receiptno, distributoridno, salesdate, createdby, dpccode, status,lastmodified, salesdetails(productcode, unitprice, unitbv, quantity)',
-          )
-          .gte('salesdate', start)
-          .lte('salesdate', end)
-          .eq('dpccode', dpc)
-          .order('salesdate', { ascending: false })
-
-        if (salesError) throw salesError
-
-        const sales = salesData || []
+        const sales = await fetchDailySales(supabase, start, end, dpc)
         if (!sales.length) {
           if (shouldApply()) this.sales = []
           return
         }
 
         // 2️⃣ Collect unique distributor IDs and product codes from sales
-        const distributorIds = [...new Set(sales.map((s) => s.distributoridno))]
+        const distributorIds = [...new Set(sales.map((s) => s.distributoridno?.toUpperCase()).filter(Boolean))]
         const productCodes = [
           ...new Set(sales.flatMap((s) => (s.salesdetails || []).map((item) => item.productcode))),
         ]
@@ -67,31 +55,29 @@ export const useSaleStore = defineStore('sales', {
         //console.log('📌 Distributor IDs to fetch:', distributorIds)
         //console.log('📌 Product Codes to fetch:', productCodes)
 
-        // 3️⃣ Fetch only those distributors using ilike (case-insensitive)
-        // 3️⃣ Fetch only those distributors using uppercase IDs
         const distributors = []
-        for (const id of distributorIds) {
-          const upperId = id.toUpperCase() // ensure uppercase
-
+        for (let i = 0; i < distributorIds.length; i += 100) {
           const { data, error } = await supabase
-            .from('Distributors') // remove quotes in REST call
+            .from('Distributors')
             .select('DistributorIDNO, DistributorNames')
-            .eq('DistributorIDNO', upperId) // exact match with uppercase
+            .in('DistributorIDNO', distributorIds.slice(i, i + 100))
 
-          if (error) console.error('Distributor fetch error for', upperId, error)
-          if (data && data.length) distributors.push(data[0])
+          if (error) console.error('Distributor fetch error:', error)
+          if (data) distributors.push(...data)
         }
 
         //console.log('✅ Distributors fetched:', distributors)
 
         // 4️⃣ Fetch only products in the selected sales
-        const { data: productsData, error: prodError } = await supabase
-          .from('products')
-          .select('productcode, productname')
-          .in('productcode', productCodes)
-
-        if (prodError) console.error('Product fetch error:', prodError)
-        const products = productsData || []
+        const products = []
+        for (let i = 0; i < productCodes.length; i += 100) {
+          const { data, error } = await supabase
+            .from('products')
+            .select('productcode, productname')
+            .in('productcode', productCodes.slice(i, i + 100))
+          if (error) console.error('Product fetch error:', error)
+          if (data) products.push(...data)
+        }
         //console.log('✅ Products fetched:', products)
 
         // 5️⃣ Build lookup objects
@@ -108,7 +94,7 @@ export const useSaleStore = defineStore('sales', {
         // 6️⃣ Map sales with names
         const mappedSales = sales.map((sale) => ({
           ...sale,
-          distributorname: distributorLookup[sale.distributoridno] || '',
+          distributorname: distributorLookup[sale.distributoridno?.toUpperCase()] || '',
           salesdetails: (sale.salesdetails || []).map((item) => ({
             ...item,
             productname: productLookup[item.productcode] || '',

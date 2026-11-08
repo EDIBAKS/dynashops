@@ -1113,7 +1113,6 @@ onMounted(async () => {
   form.salesdate = `${yyyy}-${mm}-${dd}`
 
   // --- Load essential data ---
-  auth.loadFromLocalStorage()
   store.fetchProducts()
   store.fetchExchangeRate()
   fetchShopName()

@@ -9,6 +9,10 @@
       @logout="logout"
     >
       <template #toolbar>
+        <div v-if="auth.user && showInactivityWarning(auth.inactivityRemaining)" class="session-countdown" role="status">
+          <q-icon name="schedule" size="16px" aria-hidden="true" />
+          <span>{{ $t('inactivityCountdown', { time: inactivityTime }) }}</span>
+        </div>
         <div class="quick-actions-bar bg-blue-grey-9 px-3 py-2">
           <div class="quick-actions flex items-center justify-center gap-2">
             <q-btn-dropdown
@@ -129,13 +133,14 @@
 
 <script setup>
 // Shared navigation, localization, and session-management dependencies.
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuth } from 'stores/auth'
 import { useRouter } from 'vue-router'
-import { Loading } from 'quasar'
+import { Loading, Notify } from 'quasar'
 import HeaderComponent from 'components/HeaderComponent.vue'
 import FooterComponent from 'components/FooterComponent.vue'
+import { showInactivityWarning } from 'src/utils/inactivity'
 //const isAdmin = computed(() => ['Admin', 'SuperAdmin'].includes(auth.userDetails?.role))
 // Current route, user session, language, and navigation state.
 const auth = useAuth()
@@ -174,15 +179,20 @@ const setLanguage = (language) => {
   localStorage.setItem('lang', language)
 }
 
-function resetTimer() {
-  auth.resetInactivityTimer()
-}
-
 // Computed label for display
 const currentLanguage = computed(() => (locale.value === 'fr' ? 'FR' : 'EN'))
+const inactivityTime = computed(() => {
+  const seconds = auth.inactivityRemaining
+  return `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`
+})
 const logout = async () => {
-  await auth.logout()
-  window.location.href = '/'
+  try {
+    await auth.logout()
+    await router.replace({ name: 'Login' })
+  } catch (error) {
+    console.error('Logout failed:', error)
+    Notify.create({ type: 'negative', message: $t('sessionLogoutFailed') })
+  }
 }
 const activeTab = ref('sales')
 const goToSales = async () => {
@@ -245,38 +255,23 @@ const goToAdmin = async () => {
   }
 }
 
-// Restore the session and start activity-based inactivity tracking.
-onMounted(async () => {
-  auth.loadFromLocalStorage()
-  await auth.fetchUser()
-
-  if (!auth.user) {
-    router.replace('/')
-  } else {
-    auth.startInactivityTimer()
-    // Override the logout function to include redirect
-    const originalLogout = auth.logout
-    auth.logout = async (showMessage = false) => {
-      await originalLogout(showMessage)
-      router.replace('/') // redirect after logout
-    }
-  }
-
-  window.addEventListener('mousemove', resetTimer)
-  window.addEventListener('keydown', resetTimer)
-  window.addEventListener('click', resetTimer)
-  window.addEventListener('touchstart', resetTimer)
-})
-
-onBeforeUnmount(() => {
-  // ✅ Clean up event listeners
-  window.removeEventListener('mousemove', resetTimer)
-  window.removeEventListener('keydown', resetTimer)
-  window.removeEventListener('click', resetTimer)
-  window.removeEventListener('touchstart', resetTimer)
-})
 </script>
 <style scoped>
+.session-countdown {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem max(0.75rem, env(safe-area-inset-right, 0px)) 0.4rem max(0.75rem, env(safe-area-inset-left, 0px));
+  background: #fff3cd;
+  color: #5c3c00;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
 .app-page-container {
   min-height: 100dvh;
 }

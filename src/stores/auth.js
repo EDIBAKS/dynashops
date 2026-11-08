@@ -1,13 +1,14 @@
 import { defineStore } from 'pinia'
 import { supabase } from 'boot/supabase'
+import { activityStorageKey } from '../utils/inactivity'
 
 export const useAuth = defineStore('auth', {
   // Holds the active identity and inactivity timeout configuration.
   state: () => ({
     user: null, // Supabase auth user
     userDetails: null, // Additional user details from `shopusers` table
-    inactivityTimer: null, // Timer reference
     inactivityLimit: 10 * 60 * 1000, // 10 minutes (in milliseconds)
+    inactivityRemaining: 0,
   }),
 
   actions: {
@@ -16,29 +17,29 @@ export const useAuth = defineStore('auth', {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
 
-      this.user = data.user
+      localStorage.setItem(activityStorageKey, JSON.stringify({ userId: data.user.id, at: Date.now() }))
       await this.fetchUserDetails(data.user.id)
+      this.user = data.user
       this.persistToLocalStorage()
-
-      // clear old timers and start new one
-      this.clearInactivityTimer()
-      this.startInactivityTimer()
     },
 
     // ✅ Called on app start to check if there's a logged-in user
     async fetchUser() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-
-      this.user = user
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError) throw sessionError
+      if (!sessionData.session) {
+        this.clearSession()
+        return
+      }
+      const { data: { user }, error } = await supabase.auth.getUser()
+      if (error) throw error
 
       if (user) {
         await this.fetchUserDetails(user.id)
+        this.user = user
         this.persistToLocalStorage()
-
-        // only start a timer if one doesn’t already exist
-        if (!this.inactivityTimer) this.startInactivityTimer()
+      } else {
+        this.clearSession()
       }
     },
 
@@ -56,14 +57,21 @@ export const useAuth = defineStore('auth', {
 
     // ✅ Logout user (can be triggered manually or automatically)
     async logout(showMessage = false) {
-      // The login page reads this flag and explains why the user was signed out
       if (showMessage) sessionStorage.setItem('session-expired', '1')
+      const { error } = await supabase.auth.signOut(showMessage ? { scope: 'local' } : undefined)
+      if (error) {
+        if (showMessage) sessionStorage.removeItem('session-expired')
+        throw error
+      }
+      this.clearSession()
+    },
 
-      await supabase.auth.signOut()
-      this.clearInactivityTimer()
+    clearSession() {
       this.user = null
       this.userDetails = null
+      this.inactivityRemaining = 0
       localStorage.removeItem('auth-store')
+      localStorage.removeItem(activityStorageKey)
     },
 
     // ✅ Persist to localStorage
@@ -75,16 +83,6 @@ export const useAuth = defineStore('auth', {
           userDetails: this.userDetails,
         }),
       )
-    },
-
-    // ✅ Load from localStorage on app start
-    loadFromLocalStorage() {
-      const saved = localStorage.getItem('auth-store')
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        this.user = parsed.user
-        this.userDetails = parsed.userDetails
-      }
     },
 
     // ✅ Update profile in `users` table
@@ -114,29 +112,5 @@ export const useAuth = defineStore('auth', {
       if (error) throw error
     },
 
-    // ✅ Inactivity timer logic
-    startInactivityTimer() {
-      this.clearInactivityTimer()
-
-      this.inactivityTimer = setTimeout(() => {
-        console.log(
-          `⏰ Inactivity limit of ${this.inactivityLimit / 1000 / 60} minute(s) reached — logging out user.`,
-        )
-        this.logout(true) // Auto-logout after inactivity
-      }, this.inactivityLimit)
-    },
-
-    resetInactivityTimer() {
-      if (this.user) {
-        this.startInactivityTimer() // restart only if logged in
-      }
-    },
-
-    clearInactivityTimer() {
-      if (this.inactivityTimer) {
-        clearTimeout(this.inactivityTimer)
-        this.inactivityTimer = null
-      }
-    },
   },
 })

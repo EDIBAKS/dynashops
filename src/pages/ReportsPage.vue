@@ -401,8 +401,15 @@
                         <div class="daily-distributor-id-row">
                           <span class="daily-distributor-id font-semibold" :title="sale.distributoridno">{{ sale.distributoridno || '—' }}</span>
                           <span v-if="sale.distributoridno && form.reportType === 'dailySales'" class="daily-client-bv bg-light-green-14 text-black"
-                            :title="$t('clientTotalBV')" :aria-label="`${$t('clientTotalBV')}: ${clientBv(sale.distributoridno).toFixed(2)}`">
-                            {{ $t('totalBV') }}: {{ clientBv(sale.distributoridno).toFixed(2) }}
+                            :title="$t('clientTotalBV')" role="status" aria-live="polite">
+                            {{ $t('totalBV') }}:
+                            <template v-if="clientBv(sale.distributoridno)?.status === 'ready'">
+                              {{ clientBv(sale.distributoridno).value.toFixed(2) }}
+                            </template>
+                            <template v-else-if="clientBv(sale.distributoridno)?.status === 'error'">
+                              {{ $t('clientBVFailed') }}
+                            </template>
+                            <template v-else><q-spinner size="14px" /> {{ $t('calculating') }}</template>
                           </span>
                         </div>
                         <span class="daily-distributor-name">
@@ -1302,7 +1309,7 @@
               <div class="currency-display text-bold text-light-green-14 q-ml-sm">
                 <span class="amount">{{ convert(summaryTotals.totalAmount.toFixed(2)) }}</span>
               </div>
-              <div class="q-ml-lg text-subtitle1 text-bold text-black">Total BV</div>
+              <div class="q-ml-lg text-subtitle1 text-bold text-black">{{ $t('periodTotalBV') }}</div>
               <div class="currency-display text-bold text-light-green-14 q-ml-sm">
                 <span class="amount">{{ summaryTotals.totalBv.toFixed(2) }}</span>
               </div>
@@ -1385,7 +1392,7 @@ import { useI18n } from 'vue-i18n'
 import DistributorSearch from 'components/DistributorSearch.vue'
 import CurrencyToggle from '../components/currencyTogle.vue'
 import reportExporter from 'src/components/ExporterComponent.vue'
-import { distributorBvTotals, filterSalesByReceipt, receiptNumber } from 'src/utils/reportSales'
+import { fetchClientPeriodBv, filterSalesByReceipt, periodBv, receiptNumber, saleBv } from 'src/utils/reportSales'
 
 // Optional: icon logic (you can keep it same or change)
 //const bvIcon = (bv) => 'mdi-star-circle'
@@ -2203,6 +2210,10 @@ const fetchData = async () => {
     $q.notify({ type: 'warning', message: 'Please select both start and end dates.' })
     return
   }
+  if (form.startDate > form.endDate) {
+    $q.notify({ type: 'warning', message: $t('invalidReportDateRange') })
+    return
+  }
 
   reportLoading.value = true
   reportDataReady.value = false
@@ -2230,8 +2241,14 @@ const fetchData = async () => {
         loadedDailyFilters.value = null
         {
           const filters = { start: form.startDate, end: form.endDate, dpc: dpccodeToUse }
-          await salesStore.fetchSales(filters.start, filters.end, filters.dpc)
+          const matchesFilters = () => form.reportType === 'dailySales' &&
+            form.startDate === filters.start && form.endDate === filters.end &&
+            form.dpccode === filters.dpc
+          await salesStore.fetchSales(filters.start, filters.end, filters.dpc, {
+            shouldApply: matchesFilters,
+          })
           if (salesStore.error) throw new Error(salesStore.error)
+          if (!matchesFilters()) return
           loadedDailyFilters.value = filters
         }
         break
@@ -2554,11 +2571,12 @@ const summaryTotals = computed(() => {
   if (!form.reportType || !reportDataReady.value) return null
 
   if (form.reportType === 'dailySales') {
-    if (!sortedSales.value.length || !paginatedSales.value.length) return null
+    const loaded = loadedDailyFilters.value
+    if (!loaded || loaded.dpc !== form.dpccode || loaded.start !== form.startDate ||
+        loaded.end !== form.endDate || !salesStore.sales.length) return null
 
-    // Sum across all receipts
     const totalAmount = sortedSales.value.reduce((sum, sale) => sum + totalPrice(sale), 0)
-    const totalBv = sortedSales.value.reduce((sum, sale) => sum + totalBV(sale), 0)
+    const totalBv = periodBv(salesStore.sales)
     return { label: 'Daily Totals', totalAmount, totalBv }
   }
 
@@ -2650,7 +2668,7 @@ const reportOptions = computed(() => {
 
 // Computed totals
 const totalPrice = (sale) => sale.salesdetails.reduce((acc, i) => acc + i.unitprice * i.quantity, 0)
-const totalBV = (sale) => sale.salesdetails.reduce((acc, i) => acc + i.unitbv * i.quantity, 0)
+const totalBV = saleBv
 
 // Action buttons (stub)
 
@@ -2765,6 +2783,11 @@ const pageOptions = [5, 10, 20, 50, 'All']
 // })
 //})
 const sortedSales = computed(() => {
+  if (form.reportType === 'dailySales' &&
+      (!reportDataReady.value || !loadedDailyFilters.value ||
+        loadedDailyFilters.value.dpc !== form.dpccode ||
+        loadedDailyFilters.value.start !== form.startDate ||
+        loadedDailyFilters.value.end !== form.endDate)) return []
   const sales = form.reportType === 'dailySales'
     ? filterSalesByReceipt(salesStore.sales, receiptPrefix.value, fromReceipt.value, toReceipt.value)
     : [...salesStore.sales]
@@ -2777,8 +2800,9 @@ const sortedSales = computed(() => {
         (receiptNumber(b.receiptno, receiptPrefix.value) ?? 0)
     })
 })
-const clientBvTotals = computed(() => distributorBvTotals(sortedSales.value))
-const clientBv = (id) => clientBvTotals.value.get(String(id).trim().toUpperCase()) || 0
+const clientBvTotals = ref(new Map())
+const clientBvRevision = ref(0)
+const clientBv = (id) => clientBvTotals.value.get(String(id).trim().toUpperCase())
 
 watch([fromReceipt, toReceipt, rowsPerPage], () => {
   currentPage.value = 1
@@ -2824,12 +2848,16 @@ watch(
       clearTimeout(timer)
       timer = setTimeout(refresh, 300)
     }
+    const onSalesChange = () => {
+      clientBvRevision.value += 1
+      scheduleRefresh()
+    }
     const channel = supabase
       .channel(`daily-sales-report-${Date.now()}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'salesheader' }, scheduleRefresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'salesheader' }, onSalesChange)
       .subscribe((status) => {
         if (!active) return
-        if (status === 'SUBSCRIBED') scheduleRefresh()
+        if (status === 'SUBSCRIBED') onSalesChange()
         if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error('Live sales subscription failed:', status)
           $q.notify({ type: 'negative', message: $t('liveSalesFailed') })
@@ -2853,6 +2881,39 @@ const paginatedSales = computed(() => {
   const end = start + rowsPerPage.value
   return sortedSales.value.slice(start, end)
 })
+
+const visibleClientIds = computed(() => JSON.stringify(
+  [...new Set(paginatedSales.value
+    .map((sale) => String(sale.distributoridno || '').trim().toUpperCase())
+    .filter(Boolean))].sort(),
+))
+
+watch(
+  () => [form.reportType, form.startDate, form.endDate, visibleClientIds.value, clientBvRevision.value],
+  async ([type, start, end, ids], _old, onCleanup) => {
+    let active = true
+    onCleanup(() => { active = false })
+    clientBvTotals.value = new Map()
+    if (type !== 'dailySales') return
+
+    const clients = JSON.parse(ids)
+    for (let i = 0; i < clients.length && active; i += 5) {
+      await Promise.all(clients.slice(i, i + 5).map(async (id) => {
+        try {
+          const value = await fetchClientPeriodBv(supabase, start, end, id)
+          if (active) clientBvTotals.value.set(id, { status: 'ready', value })
+        } catch (error) {
+          if (active) {
+            console.error('Client BV fetch failed:', id, error)
+            clientBvTotals.value.set(id, { status: 'error' })
+            $q.notify({ type: 'negative', message: `${$t('clientBVFailed')}: ${id}` })
+          }
+        }
+      }))
+    }
+  },
+  { immediate: true },
+)
 
 // Total pages
 const totalPages = computed(() => {
