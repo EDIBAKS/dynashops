@@ -98,3 +98,22 @@ export async function fetchClientPeriodBv(supabase, start, end, distributorId) {
 
   return totalBv
 }
+
+export async function loadClientPeriodBvs(supabase, start, end, sales, { isActive, onResult }) {
+  const clients = [...new Set(sales
+    .map((sale) => String(sale.distributoridno || '').trim().toUpperCase())
+    .filter(Boolean))]
+
+  for (let i = 0; i < clients.length && isActive(); i += 5) {
+    await Promise.all(clients.slice(i, i + 5).map(async (id) => {
+      let result
+      try {
+        const value = await fetchClientPeriodBv(supabase, start, end, id)
+        result = { status: 'ready', value }
+      } catch (error) {
+        result = { status: 'error', error }
+      }
+      if (isActive()) onResult(id, result)
+    }))
+  }
+}

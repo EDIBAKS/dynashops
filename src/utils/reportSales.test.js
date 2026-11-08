@@ -5,6 +5,7 @@ import {
   fetchClientPeriodBv,
   fetchDailySales,
   filterSalesByReceipt,
+  loadClientPeriodBvs,
   periodBv,
   receiptNumber,
 } from './reportSales.js'
@@ -112,4 +113,71 @@ test('client BV fetch surfaces incomplete pages instead of displaying a partial 
     fetchClientPeriodBv({ from: () => query }, '2026-01-01', '2026-01-31', 'A'),
     /Unable to load all client sales/,
   )
+})
+
+test('report client BV loads once per distinct client in batches across all sales', async () => {
+  const requested = []
+  let inFlight = 0
+  let maxInFlight = 0
+  const client = {
+    from() {
+      let id
+      return {
+        select() { return this },
+        gte() { return this },
+        lt() { return this },
+        ilike(_field, value) { id = value; return this },
+        order() { return this },
+        async range() {
+          requested.push(id)
+          inFlight += 1
+          maxInFlight = Math.max(maxInFlight, inFlight)
+          await Promise.resolve()
+          inFlight -= 1
+          if (id === 'C') return { data: null, count: null, error: new Error('failed') }
+          return { data: [{ salesdetails: [{ unitbv: 2, quantity: 3 }] }], count: 1, error: null }
+        },
+      }
+    },
+  }
+  const results = new Map()
+  await loadClientPeriodBvs(
+    client, '2026-01-01', '2026-01-31',
+    [' a ', 'A', 'B', 'C', 'D', 'E', 'F', ''].map((id) => ({ distributoridno: id })),
+    { isActive: () => true, onResult: (id, result) => results.set(id, result) },
+  )
+
+  assert.deepEqual(requested, ['A', 'B', 'C', 'D', 'E', 'F'])
+  assert.equal(maxInFlight, 5)
+  assert.deepEqual(results.get('A'), { status: 'ready', value: 6 })
+  assert.equal(results.get('C').status, 'error')
+  assert.match(results.get('C').error.message, /failed/)
+  assert.deepEqual(results.get('F'), { status: 'ready', value: 6 })
+})
+
+test('outdated report client BV requests do not publish results or start more batches', async () => {
+  let active = true
+  let requests = 0
+  let release
+  const pending = new Promise((resolve) => { release = resolve })
+  const query = {
+    select() { return this },
+    gte() { return this },
+    lt() { return this },
+    ilike() { return this },
+    order() { return this },
+    range() { requests += 1; return pending },
+  }
+  const results = []
+  const loading = loadClientPeriodBvs(
+    { from: () => query }, '2026-01-01', '2026-01-31',
+    ['A', 'B', 'C', 'D', 'E', 'F'].map((id) => ({ distributoridno: id })),
+    { isActive: () => active, onResult: (id) => results.push(id) },
+  )
+  assert.equal(requests, 5)
+  active = false
+  release({ data: [], count: 0, error: null })
+  await loading
+  assert.equal(requests, 5)
+  assert.deepEqual(results, [])
 })

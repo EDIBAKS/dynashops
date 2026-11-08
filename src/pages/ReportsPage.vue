@@ -87,6 +87,10 @@
             <q-icon name="info_outline" size="16px" />
             <span>{{ $t('receiptRangeHint') }}</span>
           </div>
+          <div class="receipt-range-hint">
+            <q-icon name="refresh" size="16px" />
+            <span>{{ $t('dailySalesManualRefresh') }}</span>
+          </div>
           <div class="row items-start q-col-gutter-sm">
             <div class="col">
               <div class="reports-filter-label text-caption text-bold q-mb-xs">
@@ -1392,7 +1396,7 @@ import { useI18n } from 'vue-i18n'
 import DistributorSearch from 'components/DistributorSearch.vue'
 import CurrencyToggle from '../components/currencyTogle.vue'
 import reportExporter from 'src/components/ExporterComponent.vue'
-import { fetchClientPeriodBv, filterSalesByReceipt, periodBv, receiptNumber, saleBv } from 'src/utils/reportSales'
+import { loadClientPeriodBvs, filterSalesByReceipt, periodBv, receiptNumber, saleBv } from 'src/utils/reportSales'
 
 // Optional: icon logic (you can keep it same or change)
 //const bvIcon = (bv) => 'mdi-star-circle'
@@ -2801,76 +2805,11 @@ const sortedSales = computed(() => {
     })
 })
 const clientBvTotals = ref(new Map())
-const clientBvRevision = ref(0)
 const clientBv = (id) => clientBvTotals.value.get(String(id).trim().toUpperCase())
 
 watch([fromReceipt, toReceipt, rowsPerPage], () => {
   currentPage.value = 1
 })
-
-// Refresh after committed receipt changes, including changes made by other users.
-watch(
-  () => [form.reportType, form.dpccode, form.startDate, form.endDate, reportDataReady.value, loadedDailyFilters.value],
-  ([type, dpc, start, end, ready, loaded], _old, onCleanup) => {
-    if (type !== 'dailySales' || !ready || !dpc ||
-        !loaded || loaded.dpc !== dpc || loaded.start !== start || loaded.end !== end) return
-
-    let active = true
-    let timer
-    let refreshing = false
-    let dirty = false
-    const refresh = async () => {
-      if (!active) return
-      if (refreshing || reportLoading.value) {
-        dirty = true
-        timer = setTimeout(refresh, 300)
-        return
-      }
-      refreshing = true
-      dirty = false
-      try {
-        await salesStore.fetchSales(start, end, dpc, {
-          background: true,
-          shouldApply: () => active && !reportLoading.value,
-        })
-      } catch (err) {
-        if (active) {
-          console.error('Live sales refresh failed:', err)
-          $q.notify({ type: 'negative', message: $t('liveSalesFailed') })
-        }
-      } finally {
-        refreshing = false
-        if (active && dirty) scheduleRefresh()
-      }
-    }
-    const scheduleRefresh = () => {
-      dirty = true
-      clearTimeout(timer)
-      timer = setTimeout(refresh, 300)
-    }
-    const onSalesChange = () => {
-      clientBvRevision.value += 1
-      scheduleRefresh()
-    }
-    const channel = supabase
-      .channel(`daily-sales-report-${Date.now()}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'salesheader' }, onSalesChange)
-      .subscribe((status) => {
-        if (!active) return
-        if (status === 'SUBSCRIBED') onSalesChange()
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('Live sales subscription failed:', status)
-          $q.notify({ type: 'negative', message: $t('liveSalesFailed') })
-        }
-      })
-
-    onCleanup(() => {
-      active = false
-      clearTimeout(timer)
-      void supabase.removeChannel(channel)
-    })
-  },
-)
 
 // Apply pagination
 const paginatedSales = computed(() => {
@@ -2882,35 +2821,29 @@ const paginatedSales = computed(() => {
   return sortedSales.value.slice(start, end)
 })
 
-const visibleClientIds = computed(() => JSON.stringify(
-  [...new Set(paginatedSales.value
-    .map((sale) => String(sale.distributoridno || '').trim().toUpperCase())
-    .filter(Boolean))].sort(),
-))
-
 watch(
-  () => [form.reportType, form.startDate, form.endDate, visibleClientIds.value, clientBvRevision.value],
-  async ([type, start, end, ids], _old, onCleanup) => {
+  () => [form.reportType, form.dpccode, form.startDate, form.endDate, reportDataReady.value, loadedDailyFilters.value],
+  async ([type, dpc, start, end, ready, loaded], _old, onCleanup) => {
     let active = true
     onCleanup(() => { active = false })
     clientBvTotals.value = new Map()
-    if (type !== 'dailySales') return
+    if (type !== 'dailySales' || !ready || !loaded ||
+        loaded.dpc !== dpc || loaded.start !== start || loaded.end !== end) return
 
-    const clients = JSON.parse(ids)
-    for (let i = 0; i < clients.length && active; i += 5) {
-      await Promise.all(clients.slice(i, i + 5).map(async (id) => {
-        try {
-          const value = await fetchClientPeriodBv(supabase, start, end, id)
-          if (active) clientBvTotals.value.set(id, { status: 'ready', value })
-        } catch (error) {
-          if (active) {
-            console.error('Client BV fetch failed:', id, error)
-            clientBvTotals.value.set(id, { status: 'error' })
-            $q.notify({ type: 'negative', message: `${$t('clientBVFailed')}: ${id}` })
+    let notifiedFailure = false
+    await loadClientPeriodBvs(supabase, start, end, salesStore.sales, {
+      isActive: () => active,
+      onResult: (id, result) => {
+        clientBvTotals.value.set(id, result)
+        if (result.status === 'error') {
+          console.error('Client BV fetch failed:', id, result.error)
+          if (!notifiedFailure) {
+            notifiedFailure = true
+            $q.notify({ type: 'negative', message: $t('clientBVFailed') })
           }
         }
-      }))
-    }
+      },
+    })
   },
   { immediate: true },
 )

@@ -15,17 +15,15 @@ end a session independently of the inactivity timer.
 
 The receipt range accepts numeric receipt suffixes; the selected DPC prefix is shown
 automatically. Leave both fields empty to include all receipts for the selected DPC
-and dates. Client BV badges load separately and include the client's purchases
-at all shops for the selected dates, regardless of receipt range or page. The
+and dates. Client BV badges load once per report, separately from the sales,
+and include the client's purchases at all shops for the selected dates,
+regardless of receipt range or page. The
 period total BV covers the selected shop and dates regardless of receipt range
-or page; total amount reflects the receipt range. Fetch the report again after
-changing the selected DPC or dates.
+or page; total amount reflects the receipt range. Sales and client BV do not
+update automatically; fetch the report again to refresh them or after changing the
+selected DPC or dates.
 
-Live updates require applying the Supabase migrations, including
-`20261108090000_enable_sales_report_realtime.sql`, and enabling Supabase Realtime
-for the project. Database permissions and Realtime row-level security must allow the
-signed-in user to receive sales header changes. If live updates fail, fetch the
-report again to refresh it. Client BV across shops also requires permission to
+Client BV across shops requires permission to
 read the relevant sales headers and details at those shops.
 
 ## Install the dependencies
