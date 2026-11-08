@@ -82,41 +82,47 @@
             input-class="reports-input-text text-center"
           />
         </div>
-        <div class="row items-center q-col-gutter-sm q-mt-md" style="width: 100%">
-          <div class="col">
-            <div
-              v-if="form.reportType === 'dailySales'"
-              class="reports-filter-label text-caption text-bold q-mb-xs"
-            >
-              {{ $t('from') }}
-            </div>
-            <q-input
-              v-if="form.reportType === 'dailySales'"
-              v-model="fromReceipt"
-              input-class="reports-input-text text-center text-bold"
-              outlined
-              dense
-              class="reports-filter-input"
-              @update:model-value="(val) => (fromReceipt = val.toUpperCase())"
-            />
+        <div v-if="form.reportType === 'dailySales'" class="receipt-range">
+          <div class="receipt-range-hint">
+            <q-icon name="info_outline" size="16px" />
+            <span>{{ $t('receiptRangeHint') }}</span>
           </div>
-
-          <div class="col">
-            <div
-              v-if="form.reportType === 'dailySales'"
-              class="reports-filter-label text-caption text-bold q-mb-xs"
-            >
-              {{ $t('to') }}
+          <div class="row items-start q-col-gutter-sm">
+            <div class="col">
+              <div class="reports-filter-label text-caption text-bold q-mb-xs">
+                {{ $t('from') }}
+              </div>
+              <q-input
+                v-model="fromReceipt"
+                :aria-label="$t('from')"
+                :prefix="receiptPrefix"
+                inputmode="numeric"
+                :rules="receiptRules"
+                hide-bottom-space
+                input-class="reports-input-text text-center text-bold"
+                outlined
+                dense
+                class="reports-filter-input"
+              />
             </div>
-            <q-input
-              v-if="form.reportType === 'dailySales'"
-              v-model="toReceipt"
-              input-class="reports-input-text text-center text-bold"
-              outlined
-              dense
-              class="reports-filter-input"
-              @update:model-value="(val) => (toReceipt = val.toUpperCase())"
-            />
+
+            <div class="col">
+              <div class="reports-filter-label text-caption text-bold q-mb-xs">
+                {{ $t('to') }}
+              </div>
+              <q-input
+                v-model="toReceipt"
+                :aria-label="$t('to')"
+                :prefix="receiptPrefix"
+                inputmode="numeric"
+                :rules="receiptRules"
+                hide-bottom-space
+                input-class="reports-input-text text-center text-bold"
+                outlined
+                dense
+                class="reports-filter-input"
+              />
+            </div>
           </div>
         </div>
       </q-card-section>
@@ -392,7 +398,13 @@
                       </div>
                       <div class="daily-sale-detail-tile">
                         <span class="daily-sale-detail-label">{{ $t('distributorID') }}</span>
-                        <span class="break-all font-semibold">{{ sale.distributoridno || '—' }}</span>
+                        <div class="daily-distributor-id-row">
+                          <span class="daily-distributor-id font-semibold" :title="sale.distributoridno">{{ sale.distributoridno || '—' }}</span>
+                          <span v-if="sale.distributoridno && form.reportType === 'dailySales'" class="daily-client-bv bg-light-green-14 text-black"
+                            :title="$t('clientTotalBV')" :aria-label="`${$t('clientTotalBV')}: ${clientBv(sale.distributoridno).toFixed(2)}`">
+                            {{ $t('totalBV') }}: {{ clientBv(sale.distributoridno).toFixed(2) }}
+                          </span>
+                        </div>
                         <span class="daily-distributor-name">
                           {{ sale.distributorname || 'Fetching...' }}
                         </span>
@@ -1354,6 +1366,9 @@
       </template>
       </CurrencyToggle>
     </q-card>
+    <q-page-scroller position="bottom-right" :scroll-offset="600" :offset="[18, 24]">
+      <q-btn round color="blue-grey-8" icon="keyboard_arrow_up" :aria-label="$t('backToTop')" />
+    </q-page-scroller>
   </q-page>
 </template>
 
@@ -1370,6 +1385,7 @@ import { useI18n } from 'vue-i18n'
 import DistributorSearch from 'components/DistributorSearch.vue'
 import CurrencyToggle from '../components/currencyTogle.vue'
 import reportExporter from 'src/components/ExporterComponent.vue'
+import { distributorBvTotals, filterSalesByReceipt, receiptNumber } from 'src/utils/reportSales'
 
 // Optional: icon logic (you can keep it same or change)
 //const bvIcon = (bv) => 'mdi-star-circle'
@@ -1393,6 +1409,7 @@ const tallySortField = ref('productcode')
 const tallySortDirection = ref('asc')
 const reportLoading = ref(false)
 const reportDataReady = ref(false)
+const loadedDailyFilters = ref(null)
 const activeLegCount = ref(null)
 const activeLegLoading = ref(false)
 const activeLegRequestId = ref(0)
@@ -1603,6 +1620,12 @@ const form = reactive({
   dpccode: localStorage.getItem('reportDpccode') || '', // 🔹 load last selected DPC
   reportType: '',
   distributoridno: '',
+})
+const receiptPrefix = computed(() => String(form.dpccode || '').trim().toUpperCase())
+const receiptRules = [(value) => !value || /^\d+$/.test(value) || $t('receiptNumbersOnly')]
+watch(receiptPrefix, () => {
+  fromReceipt.value = ''
+  toReceipt.value = ''
 })
 // Current date & time
 const currentDateTime = new Date()
@@ -2204,7 +2227,13 @@ const fetchData = async () => {
 
     switch (form.reportType) {
       case 'dailySales':
-        await salesStore.fetchSales(form.startDate, form.endDate, dpccodeToUse)
+        loadedDailyFilters.value = null
+        {
+          const filters = { start: form.startDate, end: form.endDate, dpc: dpccodeToUse }
+          await salesStore.fetchSales(filters.start, filters.end, filters.dpc)
+          if (salesStore.error) throw new Error(salesStore.error)
+          loadedDailyFilters.value = filters
+        }
         break
 
       case 'personalBV': {
@@ -2528,8 +2557,8 @@ const summaryTotals = computed(() => {
     if (!sortedSales.value.length || !paginatedSales.value.length) return null
 
     // Sum across all receipts
-    const totalAmount = paginatedSales.value.reduce((sum, sale) => sum + totalPrice(sale), 0)
-    const totalBv = paginatedSales.value.reduce((sum, sale) => sum + totalBV(sale), 0)
+    const totalAmount = sortedSales.value.reduce((sum, sale) => sum + totalPrice(sale), 0)
+    const totalBv = sortedSales.value.reduce((sum, sale) => sum + totalBV(sale), 0)
     return { label: 'Daily Totals', totalAmount, totalBv }
   }
 
@@ -2736,22 +2765,84 @@ const pageOptions = [5, 10, 20, 50, 'All']
 // })
 //})
 const sortedSales = computed(() => {
-  return [...salesStore.sales]
-    .filter((sale) => {
-      // Convert receiptno to numeric for comparison
-      const saleNo = Number(sale.receiptno.replace(/\D/g, ''))
-
-      const fromNo = fromReceipt.value ? Number(fromReceipt.value.replace(/\D/g, '')) : null
-      const toNo = toReceipt.value ? Number(toReceipt.value.replace(/\D/g, '')) : null
-
-      if (fromNo !== null && saleNo < fromNo) return false
-      if (toNo !== null && saleNo > toNo) return false
-      return true
-    })
+  const sales = form.reportType === 'dailySales'
+    ? filterSalesByReceipt(salesStore.sales, receiptPrefix.value, fromReceipt.value, toReceipt.value)
+    : [...salesStore.sales]
+  return sales
     .sort((a, b) => {
-      return Number(a.receiptno.replace(/\D/g, '')) - Number(b.receiptno.replace(/\D/g, ''))
+      if (form.reportType !== 'dailySales') {
+        return Number(a.receiptno.replace(/\D/g, '')) - Number(b.receiptno.replace(/\D/g, ''))
+      }
+      return (receiptNumber(a.receiptno, receiptPrefix.value) ?? 0) -
+        (receiptNumber(b.receiptno, receiptPrefix.value) ?? 0)
     })
 })
+const clientBvTotals = computed(() => distributorBvTotals(sortedSales.value))
+const clientBv = (id) => clientBvTotals.value.get(String(id).trim().toUpperCase()) || 0
+
+watch([fromReceipt, toReceipt, rowsPerPage], () => {
+  currentPage.value = 1
+})
+
+// Refresh after committed receipt changes, including changes made by other users.
+watch(
+  () => [form.reportType, form.dpccode, form.startDate, form.endDate, reportDataReady.value, loadedDailyFilters.value],
+  ([type, dpc, start, end, ready, loaded], _old, onCleanup) => {
+    if (type !== 'dailySales' || !ready || !dpc ||
+        !loaded || loaded.dpc !== dpc || loaded.start !== start || loaded.end !== end) return
+
+    let active = true
+    let timer
+    let refreshing = false
+    let dirty = false
+    const refresh = async () => {
+      if (!active) return
+      if (refreshing || reportLoading.value) {
+        dirty = true
+        timer = setTimeout(refresh, 300)
+        return
+      }
+      refreshing = true
+      dirty = false
+      try {
+        await salesStore.fetchSales(start, end, dpc, {
+          background: true,
+          shouldApply: () => active && !reportLoading.value,
+        })
+      } catch (err) {
+        if (active) {
+          console.error('Live sales refresh failed:', err)
+          $q.notify({ type: 'negative', message: $t('liveSalesFailed') })
+        }
+      } finally {
+        refreshing = false
+        if (active && dirty) scheduleRefresh()
+      }
+    }
+    const scheduleRefresh = () => {
+      dirty = true
+      clearTimeout(timer)
+      timer = setTimeout(refresh, 300)
+    }
+    const channel = supabase
+      .channel(`daily-sales-report-${Date.now()}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'salesheader' }, scheduleRefresh)
+      .subscribe((status) => {
+        if (!active) return
+        if (status === 'SUBSCRIBED') scheduleRefresh()
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('Live sales subscription failed:', status)
+          $q.notify({ type: 'negative', message: $t('liveSalesFailed') })
+        }
+      })
+
+    onCleanup(() => {
+      active = false
+      clearTimeout(timer)
+      void supabase.removeChannel(channel)
+    })
+  },
+)
 
 // Apply pagination
 const paginatedSales = computed(() => {
@@ -2767,6 +2858,9 @@ const paginatedSales = computed(() => {
 const totalPages = computed(() => {
   if (rowsPerPage.value === 'All') return 1
   return Math.ceil(sortedSales.value.length / rowsPerPage.value)
+})
+watch(totalPages, (pages) => {
+  if (currentPage.value > pages) currentPage.value = Math.max(1, pages)
 })
 
 // Change page safely
@@ -2794,6 +2888,57 @@ const submitUpdate = async () => {
 </script>
 
 <style scoped>
+.receipt-range {
+  width: 100%;
+  margin-top: 0.75rem;
+}
+
+.receipt-range-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+  margin-bottom: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.5rem;
+  background: #e8f1f5;
+  color: #37474f;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.receipt-range .col {
+  min-width: 0;
+}
+
+.receipt-range :deep(.q-field__prefix) {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.daily-distributor-id-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.daily-distributor-id {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.daily-client-bv {
+  flex-shrink: 0;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 /* Personal BV summary cards and tally tables. */
 .personal-summary-grid {
   display: grid;

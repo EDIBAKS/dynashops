@@ -2,6 +2,19 @@
 
 A Quasar Project
 
+## Daily sales reports
+
+The receipt range accepts numeric receipt suffixes; the selected DPC prefix is shown
+automatically. Leave both fields empty to include all receipts for the selected DPC
+and dates. Client BV and report totals cover all matching receipts, not just the
+current page.
+
+Live updates require applying the Supabase migrations, including
+`20261108090000_enable_sales_report_realtime.sql`, and enabling Supabase Realtime
+for the project. Database permissions and Realtime row-level security must allow the
+signed-in user to receive sales header changes. If live updates fail, fetch the
+report again to refresh it.
+
 ## Install the dependencies
 ```bash
 yarn

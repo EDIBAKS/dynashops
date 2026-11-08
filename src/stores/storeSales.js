@@ -30,9 +30,12 @@ export const useSaleStore = defineStore('sales', {
       localStorage.setItem('reportDpccode', dpccode)
     },
     // --- FETCH SALES LIST WITH NAMES ---
-    async fetchSales(start = this.startDate, end = this.endDate, dpc = this.dpccode) {
-      this.loading = true
-      this.error = null
+    async fetchSales(start = this.startDate, end = this.endDate, dpc = this.dpccode, options = {}) {
+      const { background = false, shouldApply = () => true } = options
+      if (!background) {
+        this.loading = true
+        this.error = null
+      }
       try {
         if (!dpc) throw new Error('DPC code is required')
 
@@ -51,7 +54,7 @@ export const useSaleStore = defineStore('sales', {
 
         const sales = salesData || []
         if (!sales.length) {
-          this.sales = []
+          if (shouldApply()) this.sales = []
           return
         }
 
@@ -103,7 +106,7 @@ export const useSaleStore = defineStore('sales', {
         }, {})
 
         // 6️⃣ Map sales with names
-        this.sales = sales.map((sale) => ({
+        const mappedSales = sales.map((sale) => ({
           ...sale,
           distributorname: distributorLookup[sale.distributoridno] || '',
           salesdetails: (sale.salesdetails || []).map((item) => ({
@@ -111,13 +114,15 @@ export const useSaleStore = defineStore('sales', {
             productname: productLookup[item.productcode] || '',
           })),
         }))
+        if (shouldApply()) this.sales = mappedSales
 
         //console.log('✅ Final mapped sales:', this.sales)
       } catch (err) {
         console.error('fetchSales error:', err)
-        this.error = err.message
+        if (background) throw err
+        if (shouldApply()) this.error = err.message
       } finally {
-        this.loading = false
+        if (!background) this.loading = false
       }
     },
 
