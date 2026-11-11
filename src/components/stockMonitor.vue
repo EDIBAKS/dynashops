@@ -191,6 +191,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useQuasar } from 'quasar'
 import { supabase } from 'boot/supabase'
 import { useAuth } from 'stores/auth'
+import { fetchStockQuantities } from 'src/utils/stockReport'
 import jsPDF from 'jspdf'
 //import autoTable from 'jspdf-autotable'
 // Table, filtering, and export state for the stock monitor.
@@ -272,25 +273,6 @@ function clearAllColumns() {
 }
 
 // ✅ Fetch stock per table
-async function fetchStockForTable(tableName, productCodes = []) {
-  try {
-    const { data, error } = await supabase
-      .from(tableName)
-      .select('productcode, quantity')
-      .in('productcode', productCodes)
-    if (error) {
-      console.warn(`Error reading ${tableName}:`, error.message)
-      return new Map()
-    }
-    const map = new Map()
-    for (const r of data || []) map.set(r.productcode, Number(r.quantity || 0))
-    return map
-  } catch (err) {
-    console.error(`fetchStockForTable(${tableName}) threw:`, err)
-    return new Map()
-  }
-}
-
 // ✅ Build pivot data
 async function buildStockPivot() {
   try {
@@ -325,7 +307,8 @@ async function buildStockPivot() {
         .from('shops')
         .select('shopcode, shop_name, province_code')
         .in('province_code', provCodes)
-      if (!shopErr && shopsData) shops = shopsData
+      if (shopErr) throw shopErr
+      if (shopsData) shops = shopsData
     }
 
     // 🔹 Build location list
@@ -342,7 +325,7 @@ async function buildStockPivot() {
     const locations = [...provinceLocations, ...shopLocations]
 
     // 🔹 Fetch stock data for all
-    const stockPromises = locations.map((loc) => fetchStockForTable(loc.tableName, productCodes))
+    const stockPromises = locations.map((loc) => fetchStockQuantities(supabase, loc.tableName, productCodes))
     const stockResults = await Promise.all(stockPromises)
     locations.forEach((loc, i) => (loc.stockMap = stockResults[i]))
 
@@ -401,6 +384,7 @@ async function buildStockPivot() {
       return row
     })
   } catch (err) {
+    rows.value = []
     console.error('buildStockPivot error:', err)
     $q.notify({ type: 'negative', message: err.message || 'Failed to build stock report' })
   } finally {

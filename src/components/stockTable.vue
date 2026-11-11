@@ -89,6 +89,7 @@ import * as XLSX from 'xlsx'
 import autoTable from 'jspdf-autotable'
 import { supabase } from 'boot/supabase'
 import { useAuth } from 'stores/auth'
+import { fetchStockQuantities } from 'src/utils/stockReport'
 
 /* ----------------------------------------------
    STATE
@@ -110,26 +111,10 @@ const searchText = ref('')
 /* ----------------------------------------------
    FILTERED ROWS
 ---------------------------------------------- */
-const rowsWithTotal = computed(() =>
-  rows.value.map((row) => {
-    let total = 0
-
-        // Sum dynamic location quantities while excluding product identifiers.
-    Object.keys(row).forEach((key) => {
-      if (key !== 'productcode' && key !== 'productname') {
-        const val = Number(row[key])
-        if (!isNaN(val)) total += val
-      }
-    })
-
-    return { ...row, TotalProduct: total }
-  }),
-)
-
 const filteredRows = computed(() => {
-  if (!searchText.value.trim()) return rowsWithTotal.value
+  if (!searchText.value.trim()) return rows.value
 
-  return rowsWithTotal.value.filter((r) =>
+  return rows.value.filter((r) =>
     r.productname.toLowerCase().includes(searchText.value.toLowerCase()),
   )
 })
@@ -174,26 +159,6 @@ function clearAllColumns() {
 }
 
 /* ----------------------------------------------
-   FETCH STOCK PER TABLE
----------------------------------------------- */
-async function fetchStockForTable(tableName, productCodes = []) {
-  try {
-    const { data, error } = await supabase
-      .from(tableName)
-      .select('productcode, quantity')
-      .in('productcode', productCodes)
-
-    if (error) return new Map()
-
-    const map = new Map()
-    for (const r of data || []) map.set(r.productcode, Number(r.quantity || 0))
-    return map
-  } catch {
-    return new Map()
-  }
-}
-
-/* ----------------------------------------------
    BUILD PIVOT DATA
 ---------------------------------------------- */
 async function buildStockPivot() {
@@ -203,33 +168,36 @@ async function buildStockPivot() {
     if (!countryCode) throw new Error('User country_code missing')
 
     // Fetch Products
-    const { data: productsData } = await supabase
+    const { data: productsData, error: productsError } = await supabase
       .from('products')
       .select('productcode, productname')
       .eq('status', 'active')
       .order('productname')
 
+    if (productsError) throw productsError
     const products = productsData || []
     const productCodes = products.map((p) => p.productcode)
 
     // Fetch Provinces
-    const { data: provincesData } = await supabase
+    const { data: provincesData, error: provincesError } = await supabase
       .from('province')
       .select('province_code, name')
       .eq('country_code', countryCode)
       .order('name')
 
+    if (provincesError) throw provincesError
     const provinces = provincesData || []
     const provCodes = provinces.map((p) => p.province_code)
 
     // Fetch Shops
     let shops = []
     if (provCodes.length > 0) {
-      const { data: shopsData } = await supabase
+      const { data: shopsData, error: shopsError } = await supabase
         .from('shops')
         .select('shopcode, shop_name, province_code')
         .in('province_code', provCodes)
 
+      if (shopsError) throw shopsError
       if (shopsData) shops = shopsData
     }
 
@@ -250,7 +218,7 @@ async function buildStockPivot() {
 
     // Fetch stock from all tables
     const stockMaps = await Promise.all(
-      locations.map((loc) => fetchStockForTable(loc.tableName, productCodes)),
+      locations.map((loc) => fetchStockQuantities(supabase, loc.tableName, productCodes)),
     )
 
     locations.forEach((loc, i) => (loc.stockMap = stockMaps[i]))
@@ -287,6 +255,7 @@ async function buildStockPivot() {
       label: loc.label,
       field: (row) => row[loc.label] ?? 0,
       align: 'center',
+      sortable: true,
       classes:
         loc.type === 'province'
           ? 'bg-light-green-14 text-dark text-bold'
@@ -329,12 +298,13 @@ async function buildStockPivot() {
         return sum + qty * price
       }, 0)
 
-      // Round total to integer to remove decimals
-      row.TotalProduct = Math.round(row.TotalProduct)
+      row.TotalProduct = locations.reduce((sum, loc) => sum + (loc.stockMap.get(prod.productcode) ?? 0), 0)
 
       return row
     })
   } catch (err) {
+    rows.value = []
+    console.error('Stock table load failed:', err)
     $q.notify({ type: 'negative', message: err.message })
   } finally {
     loading.value = false

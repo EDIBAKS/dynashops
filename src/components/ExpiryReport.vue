@@ -78,11 +78,11 @@ import autoTable from 'jspdf-autotable'
 import * as XLSX from 'xlsx'
 // ✅ Use shop_name instead of shopcode
 const columns = [
-  { name: 'shop_name', label: 'Shop', field: 'shop_name' },
-  { name: 'quantity', label: 'Qty', field: 'quantity' },
-  { name: 'expirydate', label: 'Expiry Date', field: 'expirydate' },
-  { name: 'dateadded', label: 'Date Added', field: 'dateadded' },
-  { name: 'modifiedby', label: 'Modified By', field: 'modifiedby' },
+  { name: 'shop_name', label: 'Shop', field: 'shop_name', sortable: true },
+  { name: 'quantity', label: 'Qty', field: 'quantity', sortable: true },
+  { name: 'expirydate', label: 'Expiry Date', field: 'expirydate', sortable: true },
+  { name: 'dateadded', label: 'Date Added', field: 'dateadded', sortable: true },
+  { name: 'modifiedby', label: 'Modified By', field: 'modifiedby', sortable: true },
   { name: 'action', label: 'Action', field: 'action' },
 ]
 

@@ -55,6 +55,7 @@
       :grid="$q.screen.lt.sm"
       :rows-per-page-options="[10, 25, 50, 0]"
       :pagination="{ rowsPerPage: 25 }"
+      :sort-method="sortActivityRows"
       class="shadow-2 rounded-borders"
     >
       <template #body-cell-activity="props">
@@ -113,17 +114,20 @@ const columns = [
   {
     name: 'created_at',
     label: 'Date & Time',
-    field: (r) => formatDateTime(r.created_at),
+    field: 'created_at',
+    format: formatDateTime,
     align: 'left',
+    sortable: true,
   },
-  { name: 'username', label: 'User', field: 'username', align: 'left' },
-  { name: 'activity', label: 'Activity', field: 'activity', align: 'left' },
-  { name: 'reference', label: 'Reference', field: 'reference', align: 'left' },
+  { name: 'username', label: 'User', field: 'username', align: 'left', sortable: true },
+  { name: 'activity', label: 'Activity', field: 'activity', align: 'left', sortable: true },
+  { name: 'reference', label: 'Reference', field: 'reference', align: 'left', sortable: true },
   {
     name: 'description',
     label: 'Details',
     field: 'description',
     align: 'left',
+    sortable: true,
     style: 'white-space: normal; min-width: 240px',
   },
 ]
@@ -141,6 +145,15 @@ const sortedRows = computed(() => {
     return cmp !== 0 ? cmp * dir : new Date(b.created_at) - new Date(a.created_at)
   })
 })
+
+function sortActivityRows(rows, sortBy, descending) {
+  if (!sortBy) return rows
+  const direction = descending ? -1 : 1
+  return [...rows].sort((a, b) => {
+    if (sortBy === 'created_at') return (new Date(a.created_at) - new Date(b.created_at)) * direction
+    return String(a[sortBy] || '').localeCompare(String(b[sortBy] || '')) * direction
+  })
+}
 
 // Display timestamps consistently and color-code activity categories.
 function formatDateTime(value) {

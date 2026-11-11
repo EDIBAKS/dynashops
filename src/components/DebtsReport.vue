@@ -420,6 +420,7 @@ const tallyColumns = [
     label: 'Product Code',
     field: 'productcode',
     align: 'left',
+    sortable: true,
   },
 
   {
@@ -427,6 +428,7 @@ const tallyColumns = [
     label: 'Product Name',
     field: 'productname',
     align: 'left',
+    sortable: true,
   },
 
   {
@@ -434,6 +436,7 @@ const tallyColumns = [
     label: 'Total Quantity',
     field: 'totalquantity',
     align: 'right',
+    sortable: true,
   },
 
   {
@@ -441,6 +444,7 @@ const tallyColumns = [
     label: 'Total Value',
     field: 'totalvalue',
     align: 'right',
+    sortable: true,
   },
 ]
 

@@ -163,6 +163,7 @@
           no-caps
           class="bg-blue-grey-9 text-white rounded-lg"
           :disable="!formReady"
+          :loading="withdrawSubmitting"
         />
       </q-form>
     </q-card>
@@ -508,6 +509,7 @@ async function fetchAvailableStock() {
 
 // Same payload reuses the same id so a retry after a lost response applies only once
 let pendingWithdraw = { key: null, id: null }
+const withdrawSubmitting = ref(false)
 function withdrawRequestId(...parts) {
   const key = JSON.stringify(parts)
   if (pendingWithdraw.key !== key) pendingWithdraw = { key, id: crypto.randomUUID() }
@@ -515,11 +517,12 @@ function withdrawRequestId(...parts) {
 }
 
 const submitWithdrawJS = async () => {
+  if (withdrawSubmitting.value) return
+  withdrawSubmitting.value = true
   // 🔐 Always validate the form first
-  const valid = await formRef.value.validate()
-  if (!valid) return
-
   try {
+    const valid = await formRef.value.validate()
+    if (!valid) return
     const qty = quantity.value
     const product = selectedProduct.value
     const currentUser = auth.userDetails?.firstname || 'Unknown'
@@ -580,6 +583,8 @@ const submitWithdrawJS = async () => {
       type: 'negative',
       message: err.message || 'Withdrawal failed',
     })
+  } finally {
+    withdrawSubmitting.value = false
   }
 }
 

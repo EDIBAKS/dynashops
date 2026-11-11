@@ -93,7 +93,7 @@ const loadData = async () => {
 
   data.value = resultData
   columns.value = resultData.length
-    ? Object.keys(resultData[0]).map((key) => ({ name: key, label: key, field: key }))
+    ? Object.keys(resultData[0]).map((key) => ({ name: key, label: key, field: key, sortable: true }))
     : []
   selectedRows.value = []
 }

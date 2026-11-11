@@ -38,7 +38,7 @@
       :rows="rows"
       :columns="columns"
       hide-bottom
-      :pagination="{ rowsPerPage: rows.length }"
+      v-model:pagination="pagination"
       virtual-scroll
       :virtual-scroll-sticky-size-start="48"
     >
@@ -79,6 +79,7 @@ const products = ref([])
 const shops = ref([])
 const provinces = ref([])
 const loading = ref(false)
+const pagination = ref({ rowsPerPage: 0 })
 
 // --- Fetching data (same as before) ---
 async function fetchData() {
@@ -155,20 +156,21 @@ const rows = computed(() => {
 
 // --- Columns ---
 const columns = computed(() => {
-  const provinceCols = provinces.value.map((p) => ({ name: p, label: p, field: p, align: 'right' }))
+  const provinceCols = provinces.value.map((p) => ({ name: p, label: p, field: p, align: 'right', sortable: true }))
   const shopCols = shops.value.map((s) => ({
     name: s.shop_name,
     label: s.shop_name,
     field: s.shop_name,
     align: 'right',
+    sortable: true,
   }))
 
   return [
-    { name: 'productcode', label: 'Code', field: 'productcode', align: 'left' },
-    { name: 'productname', label: 'Product', field: 'productname', align: 'left' },
+    { name: 'productcode', label: 'Code', field: 'productcode', align: 'left', sortable: true },
+    { name: 'productname', label: 'Product', field: 'productname', align: 'left', sortable: true },
     ...provinceCols,
     ...shopCols,
-    { name: '__total', label: 'Total', field: '__total', align: 'right' },
+    { name: '__total', label: 'Total', field: '__total', align: 'right', sortable: true },
   ]
 })
 

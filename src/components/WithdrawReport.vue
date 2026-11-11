@@ -312,6 +312,7 @@ const mappedDispatches = computed(() => {
     const price = product.distributorprice || 0
 
     return {
+      id: d.id,
       fromName,
       toName,
       productcode: d.productcode,
@@ -319,7 +320,7 @@ const mappedDispatches = computed(() => {
       quantity: d.quantity,
       value: price * d.quantity,
       createdby: d.createdby,
-      datecreated: formatDate(d.datecreated),
+      datecreated: d.datecreated,
     }
   })
 })
@@ -340,14 +341,14 @@ async function loadToOptions() {
 }
 
 const columns = [
-  { name: 'fromName', label: 'From', field: 'fromName', align: 'left' },
-  { name: 'toName', label: 'To', field: 'toName', align: 'left' },
-  { name: 'productcode', label: 'Product Code', field: 'productcode', align: 'left' },
-  { name: 'productname', label: 'Product Name', field: 'productname', align: 'left' },
-  { name: 'quantity', label: 'Qty', field: 'quantity', align: 'right' },
-  { name: 'value', label: 'Value', field: 'value', align: 'right' },
-  { name: 'createdby', label: 'Created By', field: 'createdby', align: 'left' },
-  { name: 'datecreated', label: 'Date', field: 'datecreated', align: 'left' },
+  { name: 'fromName', label: 'From', field: 'fromName', align: 'left', sortable: true },
+  { name: 'toName', label: 'To', field: 'toName', align: 'left', sortable: true },
+  { name: 'productcode', label: 'Product Code', field: 'productcode', align: 'left', sortable: true },
+  { name: 'productname', label: 'Product Name', field: 'productname', align: 'left', sortable: true },
+  { name: 'quantity', label: 'Qty', field: 'quantity', align: 'right', sortable: true },
+  { name: 'value', label: 'Value', field: 'value', align: 'right', sortable: true },
+  { name: 'createdby', label: 'Created By', field: 'createdby', align: 'left', sortable: true },
+  { name: 'datecreated', label: 'Date', field: 'datecreated', align: 'left', sortable: true, format: formatDate },
 ]
 
 /* ---------------------------------------------------

@@ -68,6 +68,7 @@
         dense
         flat
         :row-class="getRowClass"
+        :sort-method="sortSalesRows"
       />
     </q-card>
   </q-page>
@@ -128,7 +129,7 @@ async function fetchSalesReport() {
       headerClasses: 'text-left',
     },
 
-    { name: 'distributorprice', label: 'Price', field: 'distributorprice', align: 'right' },
+    { name: 'distributorprice', label: 'Price', field: 'distributorprice', align: 'right', sortable: true },
   ]
 
   // Dynamic shop columns
@@ -138,11 +139,28 @@ async function fetchSalesReport() {
       label: shop,
       field: shop,
       align: 'right',
+      sortable: true,
       format: (val, row) => (row.productname === 'TOTAL SALES' ? formatNumber(val) : val),
     })
   })
 
   rows.value = pivoted.rows
+}
+
+function sortSalesRows(rows, sortBy, descending) {
+  const total = rows.filter((row) => row.productname === 'TOTAL SALES')
+  const products = rows.filter((row) => row.productname !== 'TOTAL SALES')
+  if (!sortBy) return [...products, ...total]
+  const direction = descending ? -1 : 1
+  products.sort((a, b) => {
+    const left = a[sortBy]
+    const right = b[sortBy]
+    const comparison = typeof left === 'number' && typeof right === 'number'
+      ? left - right
+      : String(left ?? '').localeCompare(String(right ?? ''), undefined, { numeric: true })
+    return comparison * direction
+  })
+  return [...products, ...total]
 }
 
 function pivotSalesData(data) {
