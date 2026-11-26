@@ -2,12 +2,15 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   distributorBvTotals,
+  compareReceipts,
   fetchClientPeriodBv,
   fetchDailySales,
+  filterDailySales,
   filterSalesByReceipt,
   loadClientPeriodBvs,
   periodBv,
   receiptNumber,
+  validReceiptSuffix,
 } from './reportSales.js'
 
 const sales = [
@@ -16,6 +19,20 @@ const sales = [
   { receiptno: 'DPC12' + '010', distributoridno: 'B', salesdetails: [{ unitbv: 4, quantity: 1 }] },
 ]
 
+test('daily sales filters match receipt clues and exact dates independently or together', () => {
+  const records = [
+    { receiptno: 'RCDM10', salesdate: '2026-01-02T12:30:00' },
+    { receiptno: 'RCDM11', salesdate: '2026-01-03' },
+    { receiptno: 'RCDN10', salesdate: '2026-01-03T08:00:00' },
+  ]
+  assert.deepEqual(filterDailySales(records, '', ''), records)
+  assert.deepEqual(filterDailySales(records, ' m1 ', ''), records.slice(0, 2))
+  assert.deepEqual(filterDailySales(records, '', '2026-01-03'), records.slice(1))
+  assert.deepEqual(filterDailySales(records, 'rcdm', '2026-01-03'), [records[1]])
+  assert.deepEqual(filterDailySales(records, 'missing', '2026-01-03'), [])
+  assert.deepEqual(filterDailySales([{ receiptno: null, salesdate: null }], '', ''), [{ receiptno: null, salesdate: null }])
+})
+
 test('receipt ranges exclude digits in the DPC prefix and include both endpoints', () => {
   assert.equal(receiptNumber('DPC12002', 'DPC12'), 2)
   assert.deepEqual(filterSalesByReceipt(sales, 'DPC12', '2', '10'), sales.slice(1))
@@ -23,6 +40,31 @@ test('receipt ranges exclude digits in the DPC prefix and include both endpoints
   assert.deepEqual(filterSalesByReceipt(sales, 'DPC12', '2', ''), sales.slice(1))
   assert.deepEqual(filterSalesByReceipt(sales, 'DPC12', '', '2'), sales.slice(0, 2))
   assert.deepEqual(filterSalesByReceipt(sales, 'DPC12', 'x', ''), [])
+})
+
+test('receipt ranges distinguish lettered book series and compare their numbers numerically', () => {
+  const receipts = ['RCD1', 'RCD9', 'RCDM1', 'RCDM2', 'RCDM10', 'RCDM11', 'RCDN2']
+    .map((receiptno) => ({ receiptno }))
+  assert.deepEqual(filterSalesByReceipt(receipts, 'RCD', 'm2', 'M10'), receipts.slice(3, 5))
+  assert.deepEqual(filterSalesByReceipt(receipts, 'RCD', '1', '10'), receipts.slice(0, 2))
+  assert.deepEqual(filterSalesByReceipt(receipts, 'RCD', 'M2', ''), receipts.slice(3, 6))
+  assert.deepEqual(filterSalesByReceipt(receipts, 'RCD', '', 'M2'), receipts.slice(2, 4))
+  assert.deepEqual(filterSalesByReceipt(receipts, 'RCD', '1', ''), receipts.slice(0, 2))
+  assert.deepEqual(filterSalesByReceipt(receipts, 'RCD', 'M10', 'N2'), receipts.slice(4))
+  assert.deepEqual(filterSalesByReceipt(receipts, 'RCD', 'M-2', ''), [])
+  assert.equal(validReceiptSuffix('M2'), true)
+  assert.equal(validReceiptSuffix('a2'), true)
+  assert.equal(validReceiptSuffix('B2'), true)
+  assert.equal(validReceiptSuffix('M'), false)
+  assert.equal(validReceiptSuffix('2M'), false)
+  assert.deepEqual(
+    filterSalesByReceipt([{ receiptno: 'RCDA2' }, { receiptno: 'RCDB2' }], 'RCD', 'A1', 'A10'),
+    [{ receiptno: 'RCDA2' }],
+  )
+  assert.deepEqual(
+    [...receipts].reverse().sort((a, b) => compareReceipts(a.receiptno, b.receiptno, 'RCD')),
+    receipts,
+  )
 })
 
 test('period and client totals include every receipt regardless of receipt filter or page', () => {

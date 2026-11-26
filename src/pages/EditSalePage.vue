@@ -77,18 +77,28 @@
           <div class="col-12 col-sm-4">
             <q-select
               v-model="item.productcode"
-              :options="products"
+              :options="filteredProducts[item.rowId] || products"
               option-value="productcode"
               option-label="productname"
               label="Product"
+              :placeholder="$t('searchProductName')"
               dense
               outlined
               emit-value
               map-options
+              use-input
+              input-debounce="0"
+              @filter="(value, update) => filterProducts(value, update, item.rowId)"
               @update:model-value="() => selectProduct(item)"
               @popup-show="refreshAllStock"
               :disable="item.isExisting"
-            />
+            >
+              <template #no-option>
+                <q-item>
+                  <q-item-section class="text-grey">{{ $t('noResultsFound') }}</q-item-section>
+                </q-item>
+              </template>
+            </q-select>
           </div>
 
           <!-- Other inputs: qty, price, BV + delete button -->
@@ -179,6 +189,7 @@ const $q = useQuasar()
 
 const loading = ref(false)
 const products = ref([])
+const filteredProducts = ref({})
 const dpcs = ref([])
 
 const form = ref({
@@ -295,6 +306,15 @@ async function loadStock(item) {
 }
 
 /* ------------------------- Product selection ------------------------- */
+function filterProducts(value, update, rowId) {
+  const needle = value.trim().toLowerCase()
+  update(() => {
+    filteredProducts.value[rowId] = products.value.filter((product) =>
+      String(product.productname || '').toLowerCase().includes(needle),
+    )
+  })
+}
+
 async function selectProduct(item) {
   const p = products.value.find((x) => x.productcode === item.productcode)
   if (!p) return
@@ -363,6 +383,7 @@ function removeProduct(index, item) {
   }).onOk(() => {
     // JUST remove from array (do NOT update stock)
     form.value.salesdetails.splice(index, 1)
+    delete filteredProducts.value[item.rowId]
     refreshAllStock()
 
     $q.notify({

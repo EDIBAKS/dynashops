@@ -1,19 +1,52 @@
-export function receiptNumber(receipt, dpc) {
+function receiptParts(receipt, dpc = '') {
   const value = String(receipt || '').trim().toUpperCase()
   const prefix = String(dpc || '').trim().toUpperCase()
   const suffix = prefix && value.startsWith(prefix) ? value.slice(prefix.length) : value
-  return /^\d+$/.test(suffix) ? Number(suffix) : null
+  const match = /^([A-Z]*)(\d+)$/.exec(suffix)
+  return match ? { series: match[1], number: Number(match[2]) } : null
+}
+
+export function validReceiptSuffix(value) {
+  return !value || /^[A-Z]*\d+$/i.test(value)
+}
+
+export function receiptNumber(receipt, dpc) {
+  const parts = receiptParts(receipt, dpc)
+  return parts && !parts.series ? parts.number : null
+}
+
+function compareReceiptParts(a, b) {
+  if (a.series !== b.series) return a.series < b.series ? -1 : 1
+  return a.number - b.number
+}
+
+export function compareReceipts(a, b, dpc) {
+  const first = receiptParts(a, dpc)
+  const second = receiptParts(b, dpc)
+  if (!first || !second) return first ? 1 : second ? -1 : 0
+  return compareReceiptParts(first, second)
 }
 
 export function filterSalesByReceipt(sales, dpc, from, to) {
-  if ((from && !/^\d+$/.test(from)) || (to && !/^\d+$/.test(to))) return []
-  const lower = /^\d+$/.test(from) ? Number(from) : null
-  const upper = /^\d+$/.test(to) ? Number(to) : null
+  if (!validReceiptSuffix(from) || !validReceiptSuffix(to)) return []
+  const lower = from ? receiptParts(from) : null
+  const upper = to ? receiptParts(to) : null
   return sales.filter((sale) => {
     if (lower === null && upper === null) return true
-    const number = receiptNumber(sale.receiptno, dpc)
-    return number !== null && (lower === null || number >= lower) && (upper === null || number <= upper)
+    const receipt = receiptParts(sale.receiptno, dpc)
+    return receipt !== null &&
+      (lower && upper || receipt.series === (lower || upper).series) &&
+      (lower === null || compareReceiptParts(receipt, lower) >= 0) &&
+      (upper === null || compareReceiptParts(receipt, upper) <= 0)
   })
+}
+
+export function filterDailySales(sales, receipt, date) {
+  const search = String(receipt || '').trim().toUpperCase()
+  return sales.filter((sale) =>
+    (!search || String(sale.receiptno || '').toUpperCase().includes(search)) &&
+    (!date || String(sale.salesdate || '').slice(0, 10) === date),
+  )
 }
 
 export function saleBv(sale) {

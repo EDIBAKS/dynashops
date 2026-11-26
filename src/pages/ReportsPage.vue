@@ -100,7 +100,7 @@
                 v-model="fromReceipt"
                 :aria-label="$t('from')"
                 :prefix="receiptPrefix"
-                inputmode="numeric"
+                inputmode="text"
                 :rules="receiptRules"
                 hide-bottom-space
                 input-class="reports-input-text text-center text-bold"
@@ -118,7 +118,7 @@
                 v-model="toReceipt"
                 :aria-label="$t('to')"
                 :prefix="receiptPrefix"
-                inputmode="numeric"
+                inputmode="text"
                 :rules="receiptRules"
                 hide-bottom-space
                 input-class="reports-input-text text-center text-bold"
@@ -128,6 +128,33 @@
               />
             </div>
           </div>
+          <div class="row items-start q-col-gutter-sm q-mt-sm">
+            <div class="col">
+              <q-input
+                v-model="receiptSearch"
+                :label="$t('filterReceipt')"
+                :aria-label="$t('filterReceipt')"
+                clearable
+                outlined
+                dense
+                class="reports-filter-input"
+              />
+            </div>
+            <div class="col">
+              <q-input
+                v-model="salesDateFilter"
+                :label="$t('filterSalesDate')"
+                :aria-label="$t('filterSalesDate')"
+                type="date"
+                clearable
+                outlined
+                dense
+                stack-label
+                class="reports-filter-input"
+              />
+            </div>
+          </div>
+          <div class="text-caption q-mt-xs">{{ $t('dailySalesFilterHint') }}</div>
         </div>
       </q-card-section>
 
@@ -1396,7 +1423,7 @@ import { useI18n } from 'vue-i18n'
 import DistributorSearch from 'components/DistributorSearch.vue'
 import CurrencyToggle from '../components/currencyTogle.vue'
 import reportExporter from 'src/components/ExporterComponent.vue'
-import { loadClientPeriodBvs, filterSalesByReceipt, periodBv, receiptNumber, saleBv } from 'src/utils/reportSales'
+import { compareReceipts, loadClientPeriodBvs, filterDailySales, filterSalesByReceipt, periodBv, saleBv, validReceiptSuffix } from 'src/utils/reportSales'
 
 // Optional: icon logic (you can keep it same or change)
 //const bvIcon = (bv) => 'mdi-star-circle'
@@ -1614,6 +1641,8 @@ const tallyColumns = [
 
 const fromReceipt = ref('')
 const toReceipt = ref('')
+const receiptSearch = ref('')
+const salesDateFilter = ref('')
 
 const getFirstDayOfMonth = () => {
   const now = new Date()
@@ -1633,7 +1662,7 @@ const form = reactive({
   distributoridno: '',
 })
 const receiptPrefix = computed(() => String(form.dpccode || '').trim().toUpperCase())
-const receiptRules = [(value) => !value || /^\d+$/.test(value) || $t('receiptNumbersOnly')]
+const receiptRules = [(value) => validReceiptSuffix(value) || $t('receiptSuffixFormat')]
 watch(receiptPrefix, () => {
   fromReceipt.value = ''
   toReceipt.value = ''
@@ -2070,6 +2099,10 @@ onBeforeRouteLeave((to) => {
         startDate: form.startDate,
         endDate: form.endDate,
         dpccode: form.dpccode,
+        fromReceipt: fromReceipt.value,
+        toReceipt: toReceipt.value,
+        receiptSearch: receiptSearch.value,
+        salesDateFilter: salesDateFilter.value,
       }),
     )
   }
@@ -2095,6 +2128,10 @@ async function restoreReportState() {
   // The reportType watchers reset the distributor ID, so set it after they have run
   await nextTick()
   form.distributoridno = saved.distributoridno || ''
+  fromReceipt.value = saved.fromReceipt || ''
+  toReceipt.value = saved.toReceipt || ''
+  receiptSearch.value = saved.receiptSearch || ''
+  salesDateFilter.value = saved.salesDateFilter || ''
 
   await fetchData()
 }
@@ -2793,21 +2830,24 @@ const sortedSales = computed(() => {
         loadedDailyFilters.value.start !== form.startDate ||
         loadedDailyFilters.value.end !== form.endDate)) return []
   const sales = form.reportType === 'dailySales'
-    ? filterSalesByReceipt(salesStore.sales, receiptPrefix.value, fromReceipt.value, toReceipt.value)
+    ? filterDailySales(
+        filterSalesByReceipt(salesStore.sales, receiptPrefix.value, fromReceipt.value, toReceipt.value),
+        receiptSearch.value,
+        salesDateFilter.value,
+      )
     : [...salesStore.sales]
   return sales
     .sort((a, b) => {
       if (form.reportType !== 'dailySales') {
         return Number(a.receiptno.replace(/\D/g, '')) - Number(b.receiptno.replace(/\D/g, ''))
       }
-      return (receiptNumber(a.receiptno, receiptPrefix.value) ?? 0) -
-        (receiptNumber(b.receiptno, receiptPrefix.value) ?? 0)
+      return compareReceipts(a.receiptno, b.receiptno, receiptPrefix.value)
     })
 })
 const clientBvTotals = ref(new Map())
 const clientBv = (id) => clientBvTotals.value.get(String(id).trim().toUpperCase())
 
-watch([fromReceipt, toReceipt, rowsPerPage], () => {
+watch([fromReceipt, toReceipt, receiptSearch, salesDateFilter, rowsPerPage], () => {
   currentPage.value = 1
 })
 
